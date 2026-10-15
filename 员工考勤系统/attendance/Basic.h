@@ -7,6 +7,7 @@ const int MAX_DAYS = 366;
 const int MAX_RECORDS = 100;
 
 class Basic{
+    friend class FileOperation;
 private:
     dayRecord day[MAX_DAYS];
     int Daycnt;//天数
@@ -19,4 +20,6 @@ public:
     //search重载部分
     void searchRecord(Date date);
     void searchRecord(string ID);
+
+    int getRecord(Date date, Record result[]) const;
 };

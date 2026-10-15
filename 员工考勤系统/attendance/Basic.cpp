@@ -174,3 +174,15 @@ void Basic::searchRecord(string ID) {
     }
     return;
 }
+
+int Basic::getRecord(Date date, Record result[]) const {
+    for(int i=0; i<Daycnt; i++) {
+        if(day[i].date == date) {
+            for(int j=0; j<day[i].Recordcnt; j++) {
+                result[j] = day[i].dayrecords[j];
+            }
+            return day[i].Recordcnt;
+        }
+    }
+    return 0;
+}
