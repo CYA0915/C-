@@ -3,12 +3,17 @@
 #include <QDate>
 #include <QMessageBox>
 #include <QTableWidgetItem>
+#include <QFileDialog>
+
 
 Widget::Widget(QWidget *parent)
     : QWidget(parent)
     , ui(new Ui::Widget)
 {
     ui->setupUi(this);
+    ui->tableWidget->setEditTriggers(
+        QAbstractItemView::NoEditTriggers
+        );
     ui->dateEdit->setDate(QDate::currentDate());
 
     ui->tableWidget->setColumnCount(3);
@@ -35,6 +40,11 @@ void Widget::on_addRecord_clicked()
 
     if(ID.empty()){
         QMessageBox::warning(this,"提示","请输入ID");
+        return;
+    }
+
+    if (ID.find_first_of(" \t\r\n") != string::npos) {
+        QMessageBox::warning(this, "提示", "ID不能包含空格");
         return;
     }
 
@@ -87,5 +97,62 @@ void Widget::refreshTable()
 void Widget::on_showRecord_clicked()
 {
     refreshTable();
+}
+
+
+
+void Widget::on_saveRecord_clicked()
+{
+    QString filename = QFileDialog::getSaveFileName(
+        this,
+        "保存考勤记录",
+        "attendance.txt",
+        "文本文件(*.txt)"
+    );
+
+    if(filename.isEmpty()) {
+        return;
+    }
+
+    bool success = file.Save(basic,filename.toStdString());
+
+    if(success) {
+        QMessageBox::information(this,"提示","保存成功");
+    }
+    else {
+        QMessageBox::warning(this,"提示","保存失败");
+    }
+}
+
+
+void Widget::on_loadRecord_clicked()
+{
+    QString filename = QFileDialog::getOpenFileName(
+        this,
+        "读取考勤记录",
+        "",
+        "文本文件(*.txt)"
+    );
+
+    if(filename.isEmpty()){
+        return;
+    }
+
+    bool success = file.Load(basic,filename.toStdString());
+
+    if(success) {
+        refreshTable();
+        QMessageBox::information(this,"提示","文件读取完成");
+    }
+    else {
+        QMessageBox::warning(this,"提示","读取失败");
+    }
+}
+
+
+
+void Widget::on_deleteRecord_clicked()
+{
+
 }
 
