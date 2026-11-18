@@ -1,6 +1,11 @@
 #pragma once
+#include <string>
+#include <vector>
+#include "PayrollRecord.h"
 
-class PayrollStorage { // 待实现：工资单文件读写；待定义接口。 // [需补全] 定义工资单查询、加载和保存接口。
-// [补全思路] 建议load、save、findByEmployeeMonth；按员工编号和年月检索已发记录，支持重启后防重复发薪。
-// [补全思路] 序列化工资快照、状态和流水号；和银行约定提交/恢复方案，不能出现已入账但仍可重复发放。
+using namespace std;
+class PayrollStorage { 
+public:
+    bool Save(const vector<PayrollRecord>& records, const string& filename);
+    bool Load(vector<PayrollRecord>& records, const string& filename);
 };

@@ -258,3 +258,34 @@ bool Basic::summarize(
     message = "统计成功";
     return true;
 }
+
+// [Qt 前端支持] 新的修改接口：状态由参数传入，成功返回 true。
+bool Basic::changeRecord(Date date, const string& ID, int newStatus) {
+    if (newStatus < 0 || newStatus > 2) {
+        return false;
+    }
+    for (int i = 0; i < Daycnt; ++i) {
+        if (day[i].date == date) {
+            for (int j = 0; j < day[i].Recordcnt; ++j) {
+                if (day[i].dayrecords[j].ID == ID) {
+                    day[i].dayrecords[j].status = newStatus;
+                    return true;
+                }
+            }
+        }
+    }
+    return false;
+}
+
+// [Qt 前端支持] 返回已使用的日期组数。
+int Basic::dayCount() const {
+    return Daycnt;
+}
+
+// [Qt 前端支持] 越界返回 nullptr，界面必须判空后再读取。
+const dayRecord* Basic::dayAt(int index) const {
+    if (index < 0 || index >= Daycnt) {
+        return nullptr;
+    }
+    return &day[index];
+}

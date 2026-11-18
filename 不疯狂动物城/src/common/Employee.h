@@ -13,7 +13,7 @@ class Employee { // [需补全] 补充动物员工公共资料。
 protected:
     string id_;
     string name_;
-    Money basicSalary_;
+    Money basicSalary_ = 0; //基本工资初始化为0，单位分
     string bankAccountNo_;
 public:
     Employee();

@@ -1,6 +1,19 @@
 #pragma once
+#include <string>
+#include "../common/Money.h"
 
-class Food { // 待实现：食物编号、名称、单价、适用食性；待定义字段。 // [需补全] 定义食物目录字段及查询接口。
-// [补全思路] 建议字段：foodId、name、unitPriceFenPerKg、适用食性、是否在售；单价用Money且非负，购买数量统一使用正整数克。
-// [补全思路] 食性规则需覆盖鸟类和哺乳动物；只维护目录和价格，本阶段不额外引入库存或食物背包。
+using namespace std;
+
+class Food {
+private:
+    string foodId; 
+    string foodName;
+    Money pricePerKg = 0;
+public:
+    Food();
+    Food(const string& id, const string& name, Money price);
+    const string& getFoodId() const;
+    const string& getFoodName() const;
+    Money getPricePerKg() const;
+    void setFoodPrice(Money price);
 };

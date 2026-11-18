@@ -1,7 +1,26 @@
 #pragma once
+#include <string>
+#include <vector>
+#include "Food.h"
+#include "FoodPurchaseRecord.h"
+#include "../common/Employee.h"
 
-class FoodPurchaseService { // 待实现：检查食性、银行扣款、记录购买和进食；待定义接口。 // [需补全] 定义动物使用银行余额购买食物的流程。
-// [补全思路] 建议purchase(zoo,bank,animalId,foodId,quantityGrams,...)；先查动物及食物，校验在售、食性、数量，再读取本人绑定的消费账户。
-// [补全思路] 按单价分/kg与整数克计算总价并统一四舍五入到分；检查溢出及金额大于0，再带唯一购买编号调用银行消费接口。
-// [补全思路] 扣款确认后保存购买单并调用zoo进食接口（克转kg）；支付失败不记录进食，保存失败按业务编号恢复，不能简单重试再次扣钱。
+using namespace std;
+class BankService; 
+class FoodPurchaseService {
+private:
+    vector<Food> foods;
+    vector<FoodPurchaseRecord> purchases;  // [Qt 前端支持] 已完成的购买单，用于界面历史表。
+public:
+    bool addFood(const Food& food, string& message);
+    int findFoodIndex(const string& foodId) const;
+    const vector<Food>& getFoods() const;
+    bool saveFoods(const string& filename);
+    bool loadFoods(const string& filename);
+    const vector<FoodPurchaseRecord>& getPurchaseRecords() const;
+    bool savePurchases(const string& filename);
+    bool loadPurchases(const string& filename);
+     bool purchaseFood(BankService& bank, const Employee& employee, const string& foodId, int quantity, int& transactionId, string& message);
 };
+
+

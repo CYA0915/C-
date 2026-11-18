@@ -1,4 +1,4 @@
-﻿#include "BankService.h"
+#include "BankService.h"
 
 #include <fstream>
 #include <iostream>
@@ -212,6 +212,14 @@ bool BankService::closeAccount(const string& accountNo, string& message) {
     return true;
 }
 
+const vector<BankAccount*>& BankService::getAccounts() const {
+    return accounts_;
+}
+
+const vector<Transaction>& BankService::getTransactions() const {
+    return transactions_;
+}
+
 BankAccount* BankService::findAccount(const string& accountNo) const {
     const string key = trimText(accountNo);
     for (size_t i = 0; i < accounts_.size(); ++i) {
@@ -337,12 +345,21 @@ bool BankService::transfer(const string& fromAccountNo, const string& toAccountN
     return true;
 }
 
-bool BankService::depositSalary(const string& employeeId, Money amount, string& message) { // [需补全] 指定工资账户并关联唯一工资单。
-// [补全思路] 当前保存失败仍返回true；后续区分持久化结果，补充去重和流水标识。
-
-    BankAccount* account = findFirstAccountByOwner(employeeId);
+bool BankService::depositSalary(
+    const string& employeeId,
+    const string& accountNo,
+    Money amount,
+    int& transactionId,
+    string& message
+) {
+    BankAccount* account = findAccount(accountNo);
     if (account == NULL) {
         message = "该员工还没有银行账户，无法发工资";
+        return false;
+    }
+    // [Qt 前端支持] 防止把工资发到别人的账户：账号户主必须是传入员工。
+    if (account->ownerId() != employeeId) {
+        message = "该账号不属于当前员工，不能发工资";
         return false;
     }
 
@@ -352,7 +369,13 @@ bool BankService::depositSalary(const string& employeeId, Money amount, string& 
         return false;
     }
 
-    addTransaction(account->accountNo(), TX_SALARY, amount, account->balance(), "工资入账");
+    transactionId = addTransaction(
+        account->accountNo(),
+        TX_SALARY,
+        amount,
+        account->balance(),
+        "工资入账"
+    );
 
     if (!saveData()) {
 
@@ -450,6 +473,25 @@ int BankService::addTransaction(const string& accountNo, TransactionType type, M
     Date today = Date::today();
     transactions_.push_back(Transaction(id, accountNo, type, amount, balanceAfter, today, safeNote));
     return id;
+}
+
+bool BankService::payForFood(const string& accountNo, Money amount, const string& object,int& transactionId, string& message){
+    transactionId = 0;
+    BankAccount* account = findAccount(accountNo);
+    if (account == NULL) {
+        message = "账号不存在";
+        return false;
+    }
+    if (!account->withdraw(amount, message)) {
+        return false;
+    }
+    transactionId = addTransaction(account->accountNo(), TX_FOOD_PURCHASE, amount, account->balance(), object);
+    message = "购买成功，支付"+ moneyToString(amount)+ "元，当前余额："+ moneyToString(account->balance()) + "元";
+    if (!saveData()) {
+        message = "购买成功，但数据保存失败，请检查 data 目录；不要重复购买";
+        return true;
+    }
+    return true;
 }
 
 // ============================================================================

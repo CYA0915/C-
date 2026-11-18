@@ -1,4 +1,4 @@
-﻿#ifndef BANK_TRANSACTION_H
+#ifndef BANK_TRANSACTION_H
 #define BANK_TRANSACTION_H
 
 #include <string>
@@ -16,7 +16,8 @@ enum TransactionType { // [需补全] 增加食物消费类型。
     TX_TRANSFER_IN,
     TX_TRANSFER_OUT,
     TX_SALARY,
-    TX_INTEREST
+    TX_INTEREST,
+    TX_FOOD_PURCHASE   // [Qt 前端支持] 食物消费独立成类，便于界面筛选。
 };
 
 class Transaction { // [需补全] 关联工资单或食物购买单。
@@ -102,6 +103,8 @@ inline string Transaction::typeName() const {
         return "工资入账";
     case TX_INTEREST:
         return "利息";
+    case TX_FOOD_PURCHASE:
+        return "食物消费";
     default:
         return "未知";
     }
@@ -130,6 +133,10 @@ inline bool Transaction::typeFromName(const string& name, TransactionType& type)
     }
     if (name == "利息") {
         type = TX_INTEREST;
+        return true;
+    }
+    if (name == "食物消费") {
+        type = TX_FOOD_PURCHASE;
         return true;
     }
     return false;

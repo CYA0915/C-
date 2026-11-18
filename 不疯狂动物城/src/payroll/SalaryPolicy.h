@@ -1,7 +1,28 @@
 #pragma once
+#include <string>
+#include "../common/Employee.h"
+#include "../attendance/AttendanceSummary.h"
+#include "PayrollRecord.h"
 
-class SalaryPolicy { // 待实现：工资和考勤扣款规则；待定义接口。 // [需补全] 定义工资计算规则及计算接口。
-// [补全思路] 建议字段：缺勤扣款比例、请假扣款比例、奖金；基本工资由Employee提供，金额使用Money。
-// [补全思路] 建议calculate(employee,summary)返回工资明细；日工资=月基本工资/应出勤天数，按统一规则取整到分，扣款不得导致负工资。
-// [补全思路] 比例和排班由组员确定，不写死为真实政策；应出勤天数为0或missingDays大于0时返回待处理状态。
+using namespace std;
+
+class SalaryPolicy { 
+private:
+    Money absentDeductionPerDay = 0;
+    Money leaveDeductionPerDay = 0;
+    Money bonus; // 奖金
+
+public:
+    SalaryPolicy(
+        Money absentDeductionPerDay,
+        Money leaveDeductionPerDay,
+        Money bonus = 0
+    );
+
+    bool calculate(
+        const Employee& employee,
+        const AttendanceSummary& summary,
+        PayrollRecord& result,
+        string& message
+    ) const;
 };

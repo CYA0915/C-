@@ -4,3 +4,9 @@
 
 # 本地课程周记，不属于代码版本
 /大作业周记模板-AI拔尖班.docx
+
+# Qt 构建缓存和本机工程配置
+/不疯狂动物城/QtApp/build/
+/不疯狂动物城/QtApp/build-*/
+/不疯狂动物城/QtApp/.qtcreator/
+/不疯狂动物城/QtApp/*.user

@@ -19,6 +19,10 @@ public:
     bool removeanimal(const string& id); // [需补全] 保护历史考勤、账户和工资关联。
     // [补全思路] 存在历史业务的动物改为离职或停用；有余额、欠款、待发工资时拒绝直接物理删除。
     int count() const;
+    // [Qt 前端支持] 只读访问动物集合，供界面遍历/刷新表格；不转移所有权。
+    const vector<animal*>& getanimals() const;
+    // [Qt 前端支持] 清空集合；加载文件前使用，避免重复追加。
+    void clear();
     void printbycategory() const;
     bool updateanimal(const string& id, const string& newname);
     bool feedanimal(const string& id, const string& date, double amount); // [需补全] 连接购买食物与原有饲养记录。

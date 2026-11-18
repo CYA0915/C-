@@ -33,6 +33,22 @@ void Employee::printInfo() const {
     cout << "员工编号：" << id_ << "，姓名：" << name_ << "\n";
 }
 
+Money Employee::basicSalary() const {
+    return basicSalary_;
+}
+
+void Employee::setBasicSalary(Money salary) {
+    basicSalary_ = salary;
+}
+
+void Employee::setBankAccountNo(const string& accountNo) {
+    bankAccountNo_ = accountNo;
+}
+
+const string& Employee::bankAccountNo() const {
+    return bankAccountNo_;
+}
+
 // ============================================================================
 // 文件说明（Employee.cpp）
 //   Employee 的构造、员工编号/姓名读写以及 printInfo() 的实现。

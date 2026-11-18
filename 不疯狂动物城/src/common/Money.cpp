@@ -111,6 +111,7 @@ bool parseMoney(const string& text, Money& cents) {
     return true;
 }
 
+
 // ============================================================================
 // 文件说明（Money.cpp）
 //   moneyToString() / parseMoney() 的实现：支持最多两位小数、可选 '+' 号、

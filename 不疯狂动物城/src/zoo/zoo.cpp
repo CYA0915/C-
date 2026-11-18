@@ -3,36 +3,58 @@
 #include <iostream>
 using namespace std;
 
+// ============================================================================
+// zoo.cpp
+//   åŠ¨ç‰©å›­é›†åˆç®¡ç†ã€‚åŸç¨¿ç”±é‚“ç¼–å†™ï¼›æ•´åˆæ—¶é™ˆé€‚é…äº† Employee ç»§æ‰¿ã€
+//   å·¥èµ„/è´¦å·å­—æ®µå’Œ Qt å‰ç«¯åªè¯»è®¿é—®ï¼Œå¹¶ä¿®å¤äº†æºæ–‡ä»¶ä¸­çš„ä¸­æ–‡ä¹±ç ã€‚
+// ============================================================================
+
 static vector<string> split(const string& s, char sep) {
     vector<string> parts;
     string cur;
     for (size_t i = 0; i < s.size(); ++i) {
-        if (s[i] == sep) { parts.push_back(cur); cur = ""; }
-        else cur += s[i];
+        if (s[i] == sep) {
+            parts.push_back(cur);
+            cur.clear();
+        } else {
+            cur += s[i];
+        }
     }
     parts.push_back(cur);
     return parts;
 }
 
 zoo::~zoo() {
-    for (size_t i = 0; i < animals.size(); ++i) delete animals[i];
+    for (size_t i = 0; i < animals.size(); ++i) {
+        delete animals[i];
+    }
     animals.clear();
 }
 
 void zoo::addanimal(animal* a) {
-    if (a == nullptr) return;
+    if (a == nullptr) {
+        return;
+    }
     animals.push_back(a);
-    cout << "Ìí¼Ó³É¹¦ " << a->getname() << "(" << a->getcategory() << ")" << endl;
+    cout << "æ·»åŠ æˆåŠŸ " << a->getname() << "(" << a->getcategory() << ")" << endl;
 }
 
 void zoo::showall() const {
-    if (animals.empty()) { cout << "ÔİÎŞ¶¯Îï" << endl; return; }
-    for (size_t i = 0; i < animals.size(); ++i) animals[i]->display();
+    if (animals.empty()) {
+        cout << "æš‚æ— åŠ¨ç‰©" << endl;
+        return;
+    }
+    for (size_t i = 0; i < animals.size(); ++i) {
+        animals[i]->display();
+    }
 }
 
 animal* zoo::findbyid(const string& id) const {
-    for (size_t i = 0; i < animals.size(); ++i)
-        if (animals[i]->getid() == id) return animals[i];
+    for (size_t i = 0; i < animals.size(); ++i) {
+        if (animals[i]->getid() == id) {
+            return animals[i];
+        }
+    }
     return nullptr;
 }
 
@@ -47,50 +69,77 @@ bool zoo::removeanimal(const string& id) {
     return false;
 }
 
-int zoo::count() const { return (int)animals.size(); }
+int zoo::count() const {
+    return (int)animals.size();
+}
+
+const vector<animal*>& zoo::getanimals() const {
+    return animals;
+}
+
+void zoo::clear() {
+    for (size_t i = 0; i < animals.size(); ++i) {
+        delete animals[i];
+    }
+    animals.clear();
+}
 
 void zoo::printbycategory() const {
-    if (animals.empty()) { cout << "ÔİÎŞ¶¯Îï" << endl; return; }
+    if (animals.empty()) {
+        cout << "æš‚æ— åŠ¨ç‰©" << endl;
+        return;
+    }
     vector<string> categories;
-    vector<vector<animal*>> groups;
+    vector<vector<animal*> > groups;
     for (size_t i = 0; i < animals.size(); ++i) {
         string cat = animals[i]->getcategory();
         int pos = -1;
-        for (size_t j = 0; j < categories.size(); ++j)
-            if (categories[j] == cat) { pos = (int)j; break; }
+        for (size_t j = 0; j < categories.size(); ++j) {
+            if (categories[j] == cat) {
+                pos = (int)j;
+                break;
+            }
+        }
         if (pos == -1) {
             categories.push_back(cat);
             vector<animal*> g;
             g.push_back(animals[i]);
             groups.push_back(g);
-        }
-        else {
+        } else {
             groups[pos].push_back(animals[i]);
         }
     }
     for (size_t i = 0; i < categories.size(); ++i) {
-        cout << "\n¡¾" << categories[i] << "¡¿¹² " << groups[i].size() << " Ö»" << endl;
-        for (size_t j = 0; j < groups[i].size(); ++j) groups[i][j]->display();
+        cout << "\nã€" << categories[i] << "ã€‘å…± " << groups[i].size() << " åª" << endl;
+        for (size_t j = 0; j < groups[i].size(); ++j) {
+            groups[i][j]->display();
+        }
     }
 }
 
 bool zoo::updateanimal(const string& id, const string& newname) {
     animal* a = findbyid(id);
-    if (a == nullptr) return false;
+    if (a == nullptr) {
+        return false;
+    }
     a->setname(newname);
     return true;
 }
 
 bool zoo::feedanimal(const string& id, const string& date, double amount) {
     animal* a = findbyid(id);
-    if (a == nullptr) return false;
+    if (a == nullptr) {
+        return false;
+    }
     a->addfeedrecord(date, amount);
     return true;
 }
 
 bool zoo::checkhealth(const string& id, const string& date, const string& status, const string& note) {
     animal* a = findbyid(id);
-    if (a == nullptr) return false;
+    if (a == nullptr) {
+        return false;
+    }
     a->addhealthrecord(date, status, note);
     return true;
 }
@@ -102,55 +151,118 @@ void zoo::showrecords(const string& id) const {
             return;
         }
     }
-    cout << "Î´ÕÒµ½±àºÅ " << id << " µÄ¶¯Îï" << endl;
+    cout << "æœªæ‰¾åˆ°ç¼–å· " << id << " çš„åŠ¨ç‰©" << endl;
 }
 
-void zoo::save() const { // [Ğè²¹È«] ±£´æ¶¯ÎïÔ±¹¤¹«¹²ĞÅÏ¢¼°½øÊ³¹ØÁª¡£
-// [²¹È«Ë¼Â·] Óëload²ÉÓÃÏàÍ¬¸ñÊ½£¬²¢·µ»ØÍêÕû±£´æ½á¹û£»±¾´Î±£ÁôÔ­º¯ÊıÌå¡£
+void zoo::save() const {
     ofstream fout("animals.txt");
-    if (!fout) { cout << "±£´æ¶¯ÎïÊ§°Ü" << endl; return; }
-    for (size_t i = 0; i < animals.size(); ++i) fout << animals[i]->saveline() << endl;
+    if (!fout) {
+        cout << "ä¿å­˜åŠ¨ç‰©å¤±è´¥" << endl;
+        return;
+    }
+    for (size_t i = 0; i < animals.size(); ++i) {
+        fout << animals[i]->saveline() << endl;
+    }
     fout.close();
+
     ofstream rout("records.txt");
-    if (!rout) { cout << "±£´æ¼ÇÂ¼Ê§°Ü" << endl; return; }
+    if (!rout) {
+        cout << "ä¿å­˜è®°å½•å¤±è´¥" << endl;
+        return;
+    }
     for (size_t i = 0; i < animals.size(); ++i) {
         vector<string> lines = animals[i]->saverecords();
-        for (size_t j = 0; j < lines.size(); ++j) rout << lines[j] << endl;
+        for (size_t j = 0; j < lines.size(); ++j) {
+            rout << lines[j] << endl;
+        }
     }
     rout.close();
-    cout << "ÒÑ±£´æ " << animals.size() << " Ö»¶¯Îï¼°¼ÇÂ¼" << endl;
+    cout << "å·²ä¿å­˜ " << animals.size() << " åªåŠ¨ç‰©åŠè®°å½•" << endl;
 }
 
-void zoo::load() { // [Ğè²¹È«] ¶ÁÈ¡ĞÂÔöÔ±¹¤×Ö¶Î²¢±£»¤Ô­ÓĞ¶¯ÎïÊı¾İ¡£
-// [²¹È«Ë¼Â·] Í¬²½¸÷×ÓÀà¹¹ÔìºÍsaveline¸ñÊ½£¬Ğ£ÑéÖØ¸´±àºÅ¡¢Êı×Ö×ª»»¼°¾É¸ñÊ½Ä¬ÈÏÖµ¡£
+void zoo::load() {
     ifstream fin("animals.txt");
-    if (!fin) return;
+    if (!fin) {
+        return;
+    }
     string line;
     while (getline(fin, line)) {
-        if (line.empty()) continue;
+        if (line.empty()) {
+            continue;
+        }
         vector<string> p = split(line, '|');
-        if (p.size() < 3) continue;
+        if (p.size() < 3) {
+            continue;
+        }
         string type = p[0], id = p[1], name = p[2];
+        if (findbyid(id) != nullptr) {
+            continue;   // è·³è¿‡é‡å¤ç¼–å·ï¼Œé¿å…é›†åˆä¸­å‡ºç°ä¸¤ä¸ªåŒå·åŠ¨ç‰©
+        }
         animal* a = nullptr;
-        if (type == "eagle" && p.size() >= 4) a = new eagle(id, name, stod(p[3]));
-        else if (type == "parrot" && p.size() >= 4) a = new parrot(id, name, stod(p[3]));
-        else if (type == "lion") a = new lion(id, name);
-        else if (type == "elephant") a = new elephant(id, name);
-        if (a != nullptr) animals.push_back(a);
+        try {
+            if (type == "eagle" && p.size() >= 4) {
+                a = new eagle(id, name, stod(p[3]));
+            } else if (type == "parrot" && p.size() >= 4) {
+                a = new parrot(id, name, stod(p[3]));
+            } else if (type == "lion") {
+                a = new lion(id, name);
+            } else if (type == "elephant") {
+                a = new elephant(id, name);
+            }
+        } catch (...) {
+            delete a;
+            a = nullptr;
+        }
+        if (a == nullptr) {
+            continue;
+        }
+
+        // å…¼å®¹æ—§æ ¼å¼ï¼šé¸Ÿç±» 4 åˆ—ã€å“ºä¹³ç±» 3 åˆ—æ²¡æœ‰å·¥èµ„/è´¦å·ï¼Œä½¿ç”¨é»˜è®¤ç©ºå€¼ã€‚
+        try {
+            if (type == "eagle" || type == "parrot") {
+                if (p.size() >= 6) {
+                    a->setBasicSalary(stoll(p[4]));
+                    a->setBankAccountNo(p[5]);
+                }
+            } else {
+                if (p.size() >= 5) {
+                    a->setBasicSalary(stoll(p[3]));
+                    a->setBankAccountNo(p[4]);
+                }
+            }
+        } catch (...) {
+            // å·¥èµ„/è´¦å·è§£æå¤±è´¥æ—¶ä¿ç•™é»˜è®¤å€¼ï¼Œä¸é˜»æ–­æ•´åªåŠ¨ç‰©çš„åŠ è½½ã€‚
+        }
+        animals.push_back(a);
     }
     fin.close();
+
     ifstream rin("records.txt");
-    if (!rin) return;
+    if (!rin) {
+        return;
+    }
     while (getline(rin, line)) {
-        if (line.empty()) continue;
+        if (line.empty()) {
+            continue;
+        }
         vector<string> p = split(line, '|');
-        if (p.size() < 3) continue;
+        if (p.size() < 3) {
+            continue;
+        }
         string id = p[0], rtype = p[1];
         animal* a = findbyid(id);
-        if (a == nullptr) continue;
-        if (rtype == "feed" && p.size() >= 4) a->addfeedrecord(p[2], stod(p[3]));
-        else if (rtype == "health" && p.size() >= 5) a->addhealthrecord(p[2], p[3], p[4]);
+        if (a == nullptr) {
+            continue;
+        }
+        if (rtype == "feed" && p.size() >= 4) {
+            try {
+                a->addfeedrecord(p[2], stod(p[3]));
+            } catch (...) {
+            }
+        } else if (rtype == "health" && p.size() >= 5) {
+            a->addhealthrecord(p[2], p[3], p[4]);
+        }
     }
     rin.close();
-    cout << "ÒÑ´ÓÎÄ¼ş¼ÓÔØ " << animals.size() << " Ö»¶¯Îï" << endl;
+    cout << "å·²ä»æ–‡ä»¶åŠ è½½ " << animals.size() << " åªåŠ¨ç‰©" << endl;
 }

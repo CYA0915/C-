@@ -23,7 +23,9 @@ public:
     void deleteRecord(Date date, string ID,int status); // [需补全] 保护已发工资的历史考勤。
     // [补全思路] 核对所属月份是否已结算；已发放月份拒绝直接删除，需要单独更正流程；未结算记录正常删除并返回结果。
     void searchRecord(Date date, string ID);
-    void changeRecord(Date date, string ID); // [需补全] 把新状态作为参数传入并保护已结算月份。
+    void changeRecord(Date date, string ID); // 旧接口：内部 cin 读新状态，仅保留给控制台版本。
+    // [Qt 前端支持] 新状态由参数传入，返回是否修改成功；界面不再从 cin 读数据。
+    bool changeRecord(Date date, const string& ID, int newStatus);
     // [补全思路] 新增newStatus参数，去掉业务函数内部cin；检查0到2及工资状态，修改成功后返回结果。
     //search重载部分
     void searchRecord(Date date);
@@ -38,5 +40,8 @@ public:
     )const;
 
     int getRecord(Date date, Record result[]) const; // [需补全] 支持安全读取并供月度统计复用。
+    // [Qt 前端支持] 只读遍历接口：日期数量与第 index 个 dayRecord，供表格展示。
+    int dayCount() const;
+    const dayRecord* dayAt(int index) const;
     // [补全思路] 明确结果数组容量，或改为返回vector<Record>；按月统计可逐日读取，避免越界复制。
 };
