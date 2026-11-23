@@ -6,7 +6,7 @@
 
 using namespace std;
 
-class SalaryPolicy { 
+class SalaryPolicy {
 private:
     Money absentDeductionPerDay = 0;
     Money leaveDeductionPerDay = 0;

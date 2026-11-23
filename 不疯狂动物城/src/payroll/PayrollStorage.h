@@ -4,7 +4,7 @@
 #include "PayrollRecord.h"
 
 using namespace std;
-class PayrollStorage { 
+class PayrollStorage {
 public:
     bool Save(const vector<PayrollRecord>& records, const string& filename);
     bool Load(vector<PayrollRecord>& records, const string& filename);

@@ -2,7 +2,7 @@
 #include <string>
 using namespace std;
 //某ID月考勤总体统计
-struct AttendanceSummary { 
+struct AttendanceSummary {
     string employeeID;
     int year = 0;
     int month = 0;

@@ -4,7 +4,7 @@
 
 using namespace std;
 
-// [Qt 前端支持] 食物购买单快照：保存购买时的食物名称、单价和数量，
+// 食物购买单快照：保存购买时的食物名称、单价和数量，
 // 后续改价不会改变历史记录；bankTransactionId 用于和银行流水对账。
 struct FoodPurchaseRecord {
     string purchaseId;          // 购买单编号，如 FP1
@@ -16,6 +16,6 @@ struct FoodPurchaseRecord {
     Money amount = 0;           // 总金额，分
     string accountNo;           // 扣款账号
     string date;                // 购买日期 YYYY-MM-DD
-    string status = "已支付";   // 已支付 / 支付失败
+    string status = "已支付";   // 当前只保存已支付的购买
     int bankTransactionId = 0;  // 对应银行流水号
 };

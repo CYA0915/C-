@@ -231,12 +231,3 @@ bool BankStorage::saveTransactions(const vector<Transaction>& transactions) cons
     fout.flush();
     return fout.good();
 }
-
-// ============================================================================
-// 文件说明（BankStorage.cpp）
-//   CSV 读写实现：
-//   - 按英文逗号拆分行，跳过表头和格式错误/含义异常的行；
-//   - 读取账户时按类型创建 SavingsAccount/CreditAccount，并拒绝重复账号；
-//   - 保存后检查文件流状态，避免磁盘异常时误报成功；
-//   - 备注中的英文逗号和换行由 BankService::addTransaction() 预先清洗。
-// ============================================================================

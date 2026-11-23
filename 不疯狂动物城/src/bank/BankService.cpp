@@ -95,8 +95,7 @@ bool BankService::loadData() {
     return true;
 }
 
-bool BankService::saveData() { // [需补全] 账户与流水保存需要一致性处理。
-// [补全思路] 分别保存不等于整体成功；实现可恢复提交后再向上层返回最终结果。
+bool BankService::saveData() {
 
     if (!storage_.saveAccounts(accounts_)) {
         return false;
@@ -352,12 +351,13 @@ bool BankService::depositSalary(
     int& transactionId,
     string& message
 ) {
+    transactionId = 0;
     BankAccount* account = findAccount(accountNo);
     if (account == NULL) {
         message = "该员工还没有银行账户，无法发工资";
         return false;
     }
-    // [Qt 前端支持] 防止把工资发到别人的账户：账号户主必须是传入员工。
+    // 防止把工资发到别人的账户：账号户主必须是传入员工。
     if (account->ownerId() != employeeId) {
         message = "该账号不属于当前员工，不能发工资";
         return false;
@@ -493,15 +493,3 @@ bool BankService::payForFood(const string& accountNo, Money amount, const string
     }
     return true;
 }
-
-// ============================================================================
-// 文件说明（BankService.cpp）
-//   BankService 的实现：
-//   - 账户管理：开户、销户、按账号/员工编号查询、显示账户；
-//   - 存取款、转账、工资入账：修改余额并记录流水，每次操作后 saveData()；
-//   - 利息结算：按上次结息日期到今天计算，储蓄利息入账、信用利息计入欠款，
-//               无论是否产生利息都更新结息日期；
-//   - 交易查询：按账户、按日期范围。
-//   保存失败处理：内存中已生效的操作不会回滚，返回成功并提示“不要重复操作”，
-//   避免用户重试造成重复入账。
-// ============================================================================

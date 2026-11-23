@@ -1,19 +1,17 @@
-// ============================================================================
-// managerpage.cpp
-//   管理者页面：动物园、考勤、银行、工资、食物五个标签页。
-//   每个标签页都由“输入区 + 操作按钮 + 表格/文本区”组成，只使用基本控件。
+//   管理者页面：员工、考勤工资、银行、食物四个集成页面。
+//   主页面显示工具栏和表格，新增、编辑等表单按需弹出。
 //   业务调用集中在按钮槽函数里，刷新集中在 refreshXxx()，便于对照源码阅读。
-// ============================================================================
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
-#include "sqliteexporter.h"
 #include "../src/payroll/SalaryPolicy.h"
 
-#include <QCheckBox>
 #include <QComboBox>
+#include <QAction>
+#include <QDialog>
+#include <QMenu>
+#include <QSplitter>
 #include <QDateEdit>
 #include <QDir>
-#include <QFileDialog>
 #include <QFormLayout>
 #include <QGridLayout>
 #include <QGroupBox>
@@ -32,238 +30,189 @@
 
 #include <algorithm>
 
-// ============================================================================
-// [界面] 管理者页面外壳：欢迎行 + 保存/退出 + 五个标签页
-// ============================================================================
+// 管理者首页包含员工、考勤工资、银行、食物四个标签页。
 void MainWindow::setupManagerPage()
 {
     QVBoxLayout *root = new QVBoxLayout(ui->managerPage);
-    root->setContentsMargins(10, 10, 10, 10);
-    root->setSpacing(8);
-
+    root->setContentsMargins(16, 14, 16, 14);
+    root->setSpacing(12);
     QHBoxLayout *top = new QHBoxLayout();
-    m.welcomeLabel = new QLabel(QStringLiteral("管理者页面"));
-    m.welcomeLabel->setStyleSheet(QStringLiteral("font-size:16px;font-weight:bold;color:#1F3864;"));
-    QPushButton *exportButton = newButton(QStringLiteral("导出 SQLite"));
-    m.saveAllButton = newButton(QStringLiteral("保存全部数据"));
+    m.welcomeLabel = new QLabel(QStringLiteral("管理工作台"));
+    m.welcomeLabel->setObjectName(QStringLiteral("pageTitle"));
     m.logoutButton = newButton(QStringLiteral("退出登录"));
     top->addWidget(m.welcomeLabel);
     top->addStretch();
-    top->addWidget(exportButton);
-    top->addWidget(m.saveAllButton);
+    top->addWidget(newDataButton(true));
     top->addWidget(m.logoutButton);
     root->addLayout(top);
-
     m.tabs = new QTabWidget();
-    m.tabs->addTab(createZooTab(), QStringLiteral("动物园管理"));
-    m.tabs->addTab(createAttendanceTab(), QStringLiteral("考勤管理"));
+    m.tabs->setObjectName(QStringLiteral("managerTabs"));
+    m.tabs->addTab(createZooTab(), QStringLiteral("员工管理"));
+    m.tabs->addTab(createAttendanceTab(), QStringLiteral("考勤工资"));
     m.tabs->addTab(createBankTab(), QStringLiteral("银行管理"));
-    m.tabs->addTab(createPayrollTab(), QStringLiteral("工资管理"));
     m.tabs->addTab(createFoodTab(), QStringLiteral("食物管理"));
     root->addWidget(m.tabs, 1);
-
-    // [功能] 顶部按钮只做两件事：整体保存、退出登录。
-    connect(exportButton, &QPushButton::clicked, this, &MainWindow::exportSqlite);
-    connect(m.saveAllButton, &QPushButton::clicked, this, [this]() { saveAllData(true); });
     connect(m.logoutButton, &QPushButton::clicked, this, &MainWindow::logout);
 }
 
-// ============================================================================
-// [功能] SQLite 数据导出
-//   把所有模块的当前内存数据写成一个 .db 文件；不修改内存数据。
-//   表结构见 sqliteexporter.cpp：employees/attendance/bank_accounts/...
-// ============================================================================
-void MainWindow::exportSqlite()
-{
-    const QString defaultPath = QDir::currentPath() + QStringLiteral("/不疯狂动物城导出.db");
-    const QString filePath = QFileDialog::getSaveFileName(
-        this, QStringLiteral("导出 SQLite 数据库"), defaultPath,
-        QStringLiteral("SQLite 数据库 (*.db *.sqlite);;所有文件 (*)"));
-    if (filePath.trimmed().isEmpty()) {
-        return;
-    }
 
-    QString error;
-    if (!SqliteExporter::exportAll(filePath, animalManager, attendance, bank, payroll, foodService, error)) {
-        showError(QStringLiteral("SQLite 导出失败：\n") + error);
-        return;
-    }
-    showInfo(QStringLiteral("SQLite 导出成功：\n") + filePath +
-             QStringLiteral("\n\n已导出表：employees、feed_records、health_records、attendance、"
-                            "bank_accounts、transactions、payrolls、foods、food_purchases、export_info。"));
-    showStatus(QStringLiteral("SQLite 已导出：") + filePath);
-}
-
-// ============================================================================
-// [界面] 动物园管理标签页
-// ============================================================================
+// 动物园管理标签页
 QWidget *MainWindow::createZooTab()
 {
     QWidget *page = new QWidget();
     QVBoxLayout *root = new QVBoxLayout(page);
-    root->setContentsMargins(8, 8, 8, 8);
-    root->setSpacing(6);
+    root->setContentsMargins(12, 12, 12, 12);
+    root->setSpacing(10);
 
-    QHBoxLayout *top = new QHBoxLayout();
-
-    // ---- 添加动物 ----
-    QGroupBox *addGroup = newGroup(QStringLiteral("添加动物"));
-    QFormLayout *addForm = new QFormLayout(addGroup);
+    QDialog *addDialog = newDialog(QStringLiteral("新增动物员工"));
+    QFormLayout *addForm = new QFormLayout(addDialog);
     m.zooTypeCombo = new QComboBox();
     m.zooTypeCombo->addItem(QStringLiteral("老鹰"), QStringLiteral("eagle"));
     m.zooTypeCombo->addItem(QStringLiteral("鹦鹉"), QStringLiteral("parrot"));
     m.zooTypeCombo->addItem(QStringLiteral("狮子"), QStringLiteral("lion"));
     m.zooTypeCombo->addItem(QStringLiteral("大象"), QStringLiteral("elephant"));
     m.zooIdEdit = newLine(QStringLiteral("如 A001"));
-    m.zooNameEdit = newLine(QStringLiteral("动物姓名"));
-    m.zooWingEdit = newLine(QStringLiteral("翼展 cm，仅鸟类"));
-    QPushButton *addAnimalButton = newButton(QStringLiteral("添加动物"));
-    addForm->addRow(QStringLiteral("类型"), m.zooTypeCombo);
+    m.zooNameEdit = newLine(QStringLiteral("员工姓名"));
+    m.zooWingEdit = newLine(QStringLiteral("翼展 cm，仅鸟类填写"));
+    m.zooInitialSalaryEdit = newLine(QStringLiteral("基本工资，元"));
+    m.zooInitialSalaryEdit->setText("0");
+    addForm->addRow(QStringLiteral("物种"), m.zooTypeCombo);
     addForm->addRow(QStringLiteral("编号"), m.zooIdEdit);
     addForm->addRow(QStringLiteral("姓名"), m.zooNameEdit);
     addForm->addRow(QStringLiteral("翼展"), m.zooWingEdit);
-    addForm->addRow(addAnimalButton);
-    connect(addAnimalButton, &QPushButton::clicked, this, &MainWindow::addAnimal);
-
-    // 鸟类才需要翼展；狮子/大象固定食性，不需要额外输入。
-    connect(m.zooTypeCombo, &QComboBox::currentTextChanged, this, [this](const QString &) {
+    addForm->addRow(QStringLiteral("基本工资"), m.zooInitialSalaryEdit);
+    connect(dialogAction(addDialog, addForm, QStringLiteral("添加员工")), &QPushButton::clicked, this, &MainWindow::addAnimal);
+    connect(m.zooTypeCombo, &QComboBox::currentTextChanged, this, [this]() {
         const QString type = m.zooTypeCombo->currentData().toString();
-        m.zooWingEdit->setEnabled(type == QStringLiteral("eagle") || type == QStringLiteral("parrot"));
-        if (!m.zooWingEdit->isEnabled()) {
-            m.zooWingEdit->clear();
-        }
+        m.zooWingEdit->setEnabled(type == "eagle" || type == "parrot");
     });
 
-    // ---- 选中动物的员工资料 ----
-    QGroupBox *infoGroup = newGroup(QStringLiteral("选中动物资料"));
-    QFormLayout *infoForm = new QFormLayout(infoGroup);
-    m.zooSelectedLabel = new QLabel(QStringLiteral("未选择"));
-    m.zooSelectedLabel->setStyleSheet(QStringLiteral("font-weight:bold;color:#2E5C8A;"));
-    m.zooSalaryEdit = newLine(QStringLiteral("基本工资，单位元"));
-    m.zooAccountEdit = newLine(QStringLiteral("工资/消费账号"));
-    m.zooNewNameEdit = newLine(QStringLiteral("新姓名"));
-    QHBoxLayout *infoButtons = new QHBoxLayout();
-    QPushButton *saveInfoButton = newButton(QStringLiteral("保存工资/账号"));
-    QPushButton *renameButton = newButton(QStringLiteral("改名"));
-    QPushButton *deleteButton = newButton(QStringLiteral("删除动物"));
-    infoButtons->addWidget(saveInfoButton);
-    infoButtons->addWidget(renameButton);
-    infoButtons->addWidget(deleteButton);
-    infoForm->addRow(QStringLiteral("当前"), m.zooSelectedLabel);
-    infoForm->addRow(QStringLiteral("基本工资"), m.zooSalaryEdit);
-    infoForm->addRow(QStringLiteral("银行账号"), m.zooAccountEdit);
-    infoForm->addRow(QStringLiteral("新姓名"), m.zooNewNameEdit);
-    infoForm->addRow(infoButtons);
-    connect(saveInfoButton, &QPushButton::clicked, this, &MainWindow::updateAnimalInfo);
-    connect(renameButton, &QPushButton::clicked, this, &MainWindow::renameAnimal);
-    connect(deleteButton, &QPushButton::clicked, this, &MainWindow::deleteAnimal);
+    QDialog *editDialog = newDialog(QStringLiteral("编辑员工资料"));
+    QFormLayout *editForm = new QFormLayout(editDialog);
+    m.zooSelectedLabel = new QLabel();
+    m.zooNewNameEdit = newLine(QStringLiteral("员工姓名"));
+    m.zooSalaryEdit = newLine(QStringLiteral("基本工资，元"));
+    m.zooAccountEdit = newLine(QStringLiteral("本人名下银行账号，可空"));
+    editForm->addRow(QStringLiteral("员工"), m.zooSelectedLabel);
+    editForm->addRow(QStringLiteral("姓名"), m.zooNewNameEdit);
+    editForm->addRow(QStringLiteral("基本工资"), m.zooSalaryEdit);
+    editForm->addRow(QStringLiteral("绑定账号"), m.zooAccountEdit);
+    connect(dialogAction(editDialog, editForm, QStringLiteral("保存资料")), &QPushButton::clicked, this, &MainWindow::updateAnimalInfo);
 
-    // ---- 查询 / 保存 ----
-    QGroupBox *queryGroup = newGroup(QStringLiteral("查询 / 保存"));
-    QFormLayout *queryForm = new QFormLayout(queryGroup);
+    QDialog *feedDialog = newDialog(QStringLiteral("登记饲养"));
+    QFormLayout *feedForm = new QFormLayout(feedDialog);
+    m.feedAnimalEdit = newLine();
+    m.feedAnimalEdit->setReadOnly(true);
+    m.feedDateEdit = new QDateEdit(QDate::currentDate());
+    m.feedDateEdit->setCalendarPopup(true);
+    m.feedDateEdit->setDisplayFormat("yyyy-MM-dd");
+    m.feedAmountEdit = newLine(QStringLiteral("数量 kg"));
+    feedForm->addRow(QStringLiteral("员工编号"), m.feedAnimalEdit);
+    feedForm->addRow(QStringLiteral("日期"), m.feedDateEdit);
+    feedForm->addRow(QStringLiteral("数量 kg"), m.feedAmountEdit);
+    connect(dialogAction(feedDialog, feedForm, QStringLiteral("登记饲养")), &QPushButton::clicked, this, &MainWindow::addFeedRecord);
+
+    QDialog *healthDialog = newDialog(QStringLiteral("登记健康"));
+    QFormLayout *healthForm = new QFormLayout(healthDialog);
+    m.healthAnimalEdit = newLine();
+    m.healthAnimalEdit->setReadOnly(true);
+    m.healthDateEdit = new QDateEdit(QDate::currentDate());
+    m.healthDateEdit->setCalendarPopup(true);
+    m.healthDateEdit->setDisplayFormat("yyyy-MM-dd");
+    m.healthStatusCombo = new QComboBox();
+    m.healthStatusCombo->addItems({QStringLiteral("健康"), QStringLiteral("亚健康"), QStringLiteral("生病")});
+    m.healthNoteEdit = newLine(QStringLiteral("备注"));
+    healthForm->addRow(QStringLiteral("员工编号"), m.healthAnimalEdit);
+    healthForm->addRow(QStringLiteral("日期"), m.healthDateEdit);
+    healthForm->addRow(QStringLiteral("健康状态"), m.healthStatusCombo);
+    healthForm->addRow(QStringLiteral("备注"), m.healthNoteEdit);
+    connect(dialogAction(healthDialog, healthForm, QStringLiteral("登记健康")), &QPushButton::clicked, this, &MainWindow::addHealthRecord);
+
+    QDialog *recordsDialog = newDialog(QStringLiteral("饲养与健康记录"));
+    recordsDialog->resize(650, 430);
+    QVBoxLayout *recordsLayout = new QVBoxLayout(recordsDialog);
+    m.recordView = new QTextEdit();
+    m.recordView->setReadOnly(true);
+    recordsLayout->addWidget(m.recordView);
+    QPushButton *closeRecords = newButton(QStringLiteral("关闭"));
+    recordsLayout->addWidget(closeRecords);
+    connect(closeRecords, &QPushButton::clicked, recordsDialog, &QDialog::accept);
+
+    QHBoxLayout *bar = new QHBoxLayout();
+    QPushButton *add = newButton(QStringLiteral("新增员工"));
+    add->setObjectName(QStringLiteral("primaryButton"));
+    QPushButton *edit = newButton(QStringLiteral("编辑"));
+    QPushButton *openAccount = newButton(QStringLiteral("开户"));
+    QPushButton *work = newButton(QStringLiteral("考勤工资"));
+    QPushButton *records = newButton(QStringLiteral("动物记录"));
+    QPushButton *remove = newButton(QStringLiteral("删除"));
+    bar->addWidget(add);
+    bar->addWidget(edit);
+    bar->addWidget(openAccount);
+    bar->addWidget(work);
+    bar->addWidget(records);
+    bar->addWidget(remove);
+    bar->addStretch();
     m.zooFilterCategory = new QComboBox();
     m.zooFilterCategory->addItem(QStringLiteral("全部类别"), QString());
     m.zooFilterCategory->addItem(QStringLiteral("鸟类"), QStringLiteral("鸟类"));
     m.zooFilterCategory->addItem(QStringLiteral("哺乳动物"), QStringLiteral("哺乳动物"));
-    m.zooFilterId = newLine(QStringLiteral("按编号筛选，可空"));
-    QHBoxLayout *queryButtons = new QHBoxLayout();
-    QPushButton *refreshButton = newButton(QStringLiteral("刷新"));
-    QPushButton *saveButton = newButton(QStringLiteral("保存动物园"));
-    QPushButton *loadButton = newButton(QStringLiteral("加载动物园"));
-    queryButtons->addWidget(refreshButton);
-    queryButtons->addWidget(saveButton);
-    queryButtons->addWidget(loadButton);
-    queryForm->addRow(QStringLiteral("类别"), m.zooFilterCategory);
-    queryForm->addRow(QStringLiteral("编号"), m.zooFilterId);
-    queryForm->addRow(queryButtons);
-    connect(m.zooFilterCategory, &QComboBox::currentTextChanged, this, [this](const QString &) { refreshZooTable(); });
-    connect(m.zooFilterId, &QLineEdit::returnPressed, this, &MainWindow::refreshZooTable);
-    connect(refreshButton, &QPushButton::clicked, this, &MainWindow::refreshZooTable);
-    connect(saveButton, &QPushButton::clicked, this, [this]() {
-        try {
-            animalManager.save();
-            showInfo(QStringLiteral("动物园数据已保存（animals.txt / records.txt）。"));
-        } catch (...) {
-            showError(QStringLiteral("动物园数据保存失败。"));
-        }
-    });
-    connect(loadButton, &QPushButton::clicked, this, [this]() {
-        try {
-            animalManager.clear();
-            animalManager.load();
-            refreshAll();
-            showInfo(QStringLiteral("动物园数据已加载。"));
-        } catch (...) {
-            showError(QStringLiteral("动物园数据加载失败，请检查文件格式。"));
-        }
-    });
-
-    top->addWidget(addGroup, 1);
-    top->addWidget(infoGroup, 2);
-    top->addWidget(queryGroup, 1);
-    root->addLayout(top);
-
-    // ---- 动物表格 ----
-    m.zooTable = newTable(QStringList() << QStringLiteral("编号") << QStringLiteral("姓名")
-                                        << QStringLiteral("类别") << QStringLiteral("物种")
-                                        << QStringLiteral("翼展/食性") << QStringLiteral("基本工资")
-                                        << QStringLiteral("银行账号"));
-    root->addWidget(m.zooTable, 2);
+    m.zooFilterId = newLine(QStringLiteral("编号 / 姓名"));
+    m.zooFilterId->setMaximumWidth(180);
+    QPushButton *query = newButton(QStringLiteral("查询"));
+    bar->addWidget(m.zooFilterCategory);
+    bar->addWidget(m.zooFilterId);
+    bar->addWidget(query);
+    root->addLayout(bar);
+    m.zooTable = newTable({QStringLiteral("编号"), QStringLiteral("姓名"), QStringLiteral("类别"),
+                           QStringLiteral("物种"), QStringLiteral("翼展/食性"), QStringLiteral("基本工资"), QStringLiteral("银行账号")});
+    root->addWidget(m.zooTable, 1);
+    root->addWidget(newHint(QStringLiteral("选中员工后可编辑资料、开户或进入考勤工资。")));
     connect(m.zooTable, &QTableWidget::itemSelectionChanged, this, &MainWindow::onZooSelectionChanged);
-
-    // ---- 饲养 / 健康记录 ----
-    QGroupBox *recordGroup = newGroup(QStringLiteral("饲养 / 健康记录"));
-    QGridLayout *recordGrid = new QGridLayout(recordGroup);
-    m.feedAnimalEdit = newLine(QStringLiteral("动物编号"));
-    m.feedDateEdit = new QDateEdit(QDate::currentDate());
-    m.feedDateEdit->setCalendarPopup(true);
-    m.feedDateEdit->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
-    m.feedAmountEdit = newLine(QStringLiteral("数量 kg"));
-    QPushButton *feedButton = newButton(QStringLiteral("添加饲养记录"));
-    m.healthAnimalEdit = newLine(QStringLiteral("动物编号"));
-    m.healthDateEdit = new QDateEdit(QDate::currentDate());
-    m.healthDateEdit->setCalendarPopup(true);
-    m.healthDateEdit->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
-    m.healthStatusCombo = new QComboBox();
-    m.healthStatusCombo->addItems(QStringList() << QStringLiteral("健康") << QStringLiteral("亚健康") << QStringLiteral("生病"));
-    m.healthNoteEdit = newLine(QStringLiteral("备注"));
-    QPushButton *healthButton = newButton(QStringLiteral("添加健康记录"));
-    QPushButton *recordButton = newButton(QStringLiteral("查看选中动物记录"));
-
-    recordGrid->addWidget(new QLabel(QStringLiteral("饲养：动物编号")), 0, 0);
-    recordGrid->addWidget(m.feedAnimalEdit, 0, 1);
-    recordGrid->addWidget(new QLabel(QStringLiteral("日期")), 0, 2);
-    recordGrid->addWidget(m.feedDateEdit, 0, 3);
-    recordGrid->addWidget(new QLabel(QStringLiteral("数量 kg")), 0, 4);
-    recordGrid->addWidget(m.feedAmountEdit, 0, 5);
-    recordGrid->addWidget(feedButton, 0, 6);
-    recordGrid->addWidget(new QLabel(QStringLiteral("健康：动物编号")), 1, 0);
-    recordGrid->addWidget(m.healthAnimalEdit, 1, 1);
-    recordGrid->addWidget(new QLabel(QStringLiteral("日期")), 1, 2);
-    recordGrid->addWidget(m.healthDateEdit, 1, 3);
-    recordGrid->addWidget(m.healthStatusCombo, 1, 4);
-    recordGrid->addWidget(m.healthNoteEdit, 1, 5);
-    recordGrid->addWidget(healthButton, 1, 6);
-    recordGrid->addWidget(recordButton, 2, 6);
-    m.recordView = new QTextEdit();
-    m.recordView->setReadOnly(true);
-    m.recordView->setMaximumHeight(120);
-    recordGrid->addWidget(m.recordView, 2, 0, 1, 6);
-    root->addWidget(recordGroup);
-
-    m.zooStatusLabel = newHint(QStringLiteral("提示：删除动物会直接删除对象；有历史业务关联时请谨慎。"));
-    root->addWidget(m.zooStatusLabel);
-
-    connect(feedButton, &QPushButton::clicked, this, &MainWindow::addFeedRecord);
-    connect(healthButton, &QPushButton::clicked, this, &MainWindow::addHealthRecord);
-    connect(recordButton, &QPushButton::clicked, this, &MainWindow::showAnimalRecords);
-
+    connect(add, &QPushButton::clicked, addDialog, &QDialog::open);
+    connect(edit, &QPushButton::clicked, this, [this, editDialog]() {
+        if (!selectedAnimal()) { showError(QStringLiteral("请先选择一名员工。")); return; }
+        onZooSelectionChanged();
+        editDialog->open();
+    });
+    connect(openAccount, &QPushButton::clicked, this, [this]() {
+        animal *a = selectedAnimal();
+        if (!a) { showError(QStringLiteral("请先选择一名员工。")); return; }
+        m.bankOpenOwnerCombo->setCurrentIndex(m.bankOpenOwnerCombo->findData(QString::fromStdString(a->getid())));
+        m.bankOpenDialog->open();
+    });
+    connect(work, &QPushButton::clicked, this, [this]() {
+        animal *a = selectedAnimal();
+        if (!a) { showError(QStringLiteral("请先选择一名员工。")); return; }
+        m.payEmployeeCombo->setCurrentIndex(m.payEmployeeCombo->findData(QString::fromStdString(a->getid())));
+        m.tabs->setCurrentIndex(1);
+        summarizeAttendance();
+    });
+    QMenu *recordMenu = new QMenu(records);
+    QAction *feedAction = recordMenu->addAction(QStringLiteral("登记饲养"));
+    QAction *healthAction = recordMenu->addAction(QStringLiteral("登记健康"));
+    QAction *viewAction = recordMenu->addAction(QStringLiteral("查看记录"));
+    records->setMenu(recordMenu);
+    connect(feedAction, &QAction::triggered, this, [this, feedDialog]() {
+        if (!selectedAnimal()) { showError(QStringLiteral("请先选择一名员工。")); return; }
+        onZooSelectionChanged(); feedDialog->open();
+    });
+    connect(healthAction, &QAction::triggered, this, [this, healthDialog]() {
+        if (!selectedAnimal()) { showError(QStringLiteral("请先选择一名员工。")); return; }
+        onZooSelectionChanged(); healthDialog->open();
+    });
+    connect(viewAction, &QAction::triggered, this, [this, recordsDialog]() {
+        if (!selectedAnimal()) { showError(QStringLiteral("请先选择一名员工。")); return; }
+        showAnimalRecords(); recordsDialog->open();
+    });
+    connect(remove, &QPushButton::clicked, this, &MainWindow::deleteAnimal);
+    connect(query, &QPushButton::clicked, this, &MainWindow::refreshZooTable);
+    connect(m.zooFilterId, &QLineEdit::returnPressed, this, &MainWindow::refreshZooTable);
+    connect(m.zooFilterCategory, &QComboBox::currentTextChanged, this, &MainWindow::refreshZooTable);
     return page;
 }
 
-// ---------------------------------------------------------------------------
-// [刷新] 动物园表格：按类别和编号筛选；专属列用 dynamic_cast 读取翼展/食性。
-// ---------------------------------------------------------------------------
+// 动物园表格：按类别和编号筛选；专属列用 dynamic_cast 读取翼展/食性。
 void MainWindow::refreshZooTable()
 {
     if (!m.zooTable) {
@@ -284,7 +233,8 @@ void MainWindow::refreshZooTable()
         if (!category.isEmpty() && categoryText != category) {
             continue;
         }
-        if (!idFilter.isEmpty() && !id.contains(idFilter, Qt::CaseInsensitive)) {
+        if (!idFilter.isEmpty() && !id.contains(idFilter, Qt::CaseInsensitive) &&
+            !QString::fromStdString(a->getname()).contains(idFilter, Qt::CaseInsensitive)) {
             continue;
         }
 
@@ -315,22 +265,21 @@ void MainWindow::onZooSelectionChanged()
         return;
     }
     m.zooSelectedLabel->setText(QString::fromStdString(a->getid() + " | " + a->getname() + " | " + a->getcategory()));
+    m.zooNewNameEdit->setText(QString::fromStdString(a->getname()));
     m.zooSalaryEdit->setText(QString::fromStdString(moneyToString(a->basicSalary())));
     m.zooAccountEdit->setText(QString::fromStdString(a->bankAccountNo()));
     m.feedAnimalEdit->setText(QString::fromStdString(a->getid()));
     m.healthAnimalEdit->setText(QString::fromStdString(a->getid()));
 }
 
-// ---------------------------------------------------------------------------
-// [功能] 动物园：添加、保存资料、改名、删除、饲养、健康、查看记录
-// ---------------------------------------------------------------------------
+// 员工资料及动物历史记录操作。
 void MainWindow::addAnimal()
 {
     const QString id = m.zooIdEdit->text().trimmed();
     const QString name = m.zooNameEdit->text().trimmed();
     const QString type = m.zooTypeCombo->currentData().toString();
 
-    // [校验] 编号唯一、姓名非空；鸟类翼展必须为正数。
+    // 编号唯一、姓名非空；鸟类翼展必须为正数。
     if (id.isEmpty() || name.isEmpty()) {
         showError(QStringLiteral("编号和姓名不能为空。"));
         return;
@@ -350,6 +299,12 @@ void MainWindow::addAnimal()
         }
     }
 
+    Money salary = 0;
+    QString error;
+    if (!readMoney(m.zooInitialSalaryEdit, salary, error)) {
+        showError(QStringLiteral("基本工资：") + error);
+        return;
+    }
     animal *a = nullptr;
     if (type == QStringLiteral("eagle")) {
         a = new eagle(id.toStdString(), name.toStdString(), wing);
@@ -364,17 +319,21 @@ void MainWindow::addAnimal()
         return;
     }
 
+    a->setBasicSalary(salary);
     animalManager.addanimal(a);   // 所有权移交 zoo
     try {
         animalManager.save();
     } catch (...) {
     }
+    const QDate today = QDate::currentDate();
+    initializeAttendance(today.year(), today.month());
     refreshAll();
     selectZooRow(id.toStdString());
     m.zooIdEdit->clear();
     m.zooNameEdit->clear();
     m.zooWingEdit->clear();
     showStatus(QStringLiteral("动物添加成功：") + id);
+    closeOperationDialog();
 }
 
 void MainWindow::updateAnimalInfo()
@@ -384,44 +343,35 @@ void MainWindow::updateAnimalInfo()
         showError(QStringLiteral("请先在表格中选择一只动物。"));
         return;
     }
+    const QString name = m.zooNewNameEdit->text().trimmed();
+    if (name.isEmpty()) {
+        showError(QStringLiteral("请输入员工姓名。"));
+        return;
+    }
     Money salary = 0;
     QString error;
     if (!readMoney(m.zooSalaryEdit, salary, error)) {
         showError(QStringLiteral("基本工资：") + error);
         return;
     }
+    const std::string accountNo = m.zooAccountEdit->text().trimmed().toStdString();
+    if (!accountNo.empty()) {
+        BankAccount *account = bank.findAccount(accountNo);
+        if (!account || account->ownerId() != a->getid()) {
+            showError(QStringLiteral("绑定账号必须是该员工名下已开立的银行账户。"));
+            return;
+        }
+    }
+    animalManager.updateanimal(a->getid(), name.toStdString());
     a->setBasicSalary(salary);
-    a->setBankAccountNo(m.zooAccountEdit->text().trimmed().toStdString());
+    a->setBankAccountNo(accountNo);
     try {
         animalManager.save();
     } catch (...) {
     }
     refreshAll();
-    showStatus(QStringLiteral("工资/账号已保存。"));
-}
-
-void MainWindow::renameAnimal()
-{
-    animal *a = selectedAnimal();
-    if (!a) {
-        showError(QStringLiteral("请先在表格中选择一只动物。"));
-        return;
-    }
-    const QString newName = m.zooNewNameEdit->text().trimmed();
-    if (newName.isEmpty()) {
-        showError(QStringLiteral("请输入新姓名。"));
-        return;
-    }
-    if (!animalManager.updateanimal(a->getid(), newName.toStdString())) {
-        showError(QStringLiteral("改名失败。"));
-        return;
-    }
-    try {
-        animalManager.save();
-    } catch (...) {
-    }
-    refreshAll();
-    showStatus(QStringLiteral("改名成功。"));
+    showStatus(QStringLiteral("员工资料已保存。"));
+    closeOperationDialog();
 }
 
 void MainWindow::deleteAnimal()
@@ -477,6 +427,7 @@ void MainWindow::addFeedRecord()
     }
     showAnimalRecords();
     showStatus(QStringLiteral("饲养记录已添加。"));
+    closeOperationDialog();
 }
 
 void MainWindow::addHealthRecord()
@@ -503,6 +454,7 @@ void MainWindow::addHealthRecord()
     }
     showAnimalRecords();
     showStatus(QStringLiteral("健康记录已添加。"));
+    closeOperationDialog();
 }
 
 void MainWindow::showAnimalRecords()
@@ -544,99 +496,133 @@ void MainWindow::showAnimalRecords()
     m.recordView->setPlainText(text);
 }
 
-// ============================================================================
-// [界面] 考勤管理标签页
-// ============================================================================
+// 考勤管理标签页
 QWidget *MainWindow::createAttendanceTab()
 {
     QWidget *page = new QWidget();
     QVBoxLayout *root = new QVBoxLayout(page);
-    root->setContentsMargins(8, 8, 8, 8);
-    root->setSpacing(6);
+    root->setContentsMargins(12, 12, 12, 12);
+    root->setSpacing(10);
+    QHBoxLayout *bar = new QHBoxLayout();
+    m.payEmployeeCombo = new QComboBox();
+    m.payEmployeeCombo->setMinimumWidth(170);
+    m.payYearSpin = new QSpinBox();
+    m.payYearSpin->setRange(2000, 2100);
+    m.payYearSpin->setValue(QDate::currentDate().year());
+    m.payMonthSpin = new QSpinBox();
+    m.payMonthSpin->setRange(1, 12);
+    m.payMonthSpin->setValue(QDate::currentDate().month());
+    QPushButton *query = newButton(QStringLiteral("查询考勤"));
+    QPushButton *generate = newButton(QStringLiteral("生成工资单"));
+    generate->setObjectName(QStringLiteral("primaryButton"));
+    bar->addWidget(m.payEmployeeCombo, 1);
+    bar->addWidget(m.payYearSpin);
+    bar->addWidget(new QLabel(QStringLiteral("年")));
+    bar->addWidget(m.payMonthSpin);
+    bar->addWidget(new QLabel(QStringLiteral("月")));
+    bar->addWidget(query);
+    bar->addWidget(generate);
+    root->addLayout(bar);
+    m.paySummaryLabel = newHint(QStringLiteral("选择员工和月份即可查询考勤；工资按固定缺勤、请假扣款计算。"));
+    root->addWidget(m.paySummaryLabel);
 
-    QHBoxLayout *top = new QHBoxLayout();
-
-    // [界面] 管理者只做查询和修改；签到、请假由员工页面发起。
-    QGroupBox *editGroup = newGroup(QStringLiteral("查询 / 修改"));
-    QFormLayout *editForm = new QFormLayout(editGroup);
+    QDialog *changeDialog = newDialog(QStringLiteral("设置考勤记录"));
+    QFormLayout *changeForm = new QFormLayout(changeDialog);
+    m.attEmployeeCombo = new QComboBox();
+    m.attDateEdit = new QDateEdit(QDate::currentDate());
+    m.attDateEdit->setCalendarPopup(true);
+    m.attDateEdit->setDateRange(QDate(2000, 1, 1), QDate(2100, 12, 31));
+    m.attDateEdit->setDisplayFormat("yyyy-MM-dd");
     m.attNewStatusCombo = new QComboBox();
     m.attNewStatusCombo->addItem(QStringLiteral("缺勤"), 0);
     m.attNewStatusCombo->addItem(QStringLiteral("出勤"), 1);
     m.attNewStatusCombo->addItem(QStringLiteral("请假"), 2);
-    QHBoxLayout *modifyButtons = new QHBoxLayout();
-    QPushButton *changeButton = newButton(QStringLiteral("修改选中状态"));
-    QPushButton *deleteButton = newButton(QStringLiteral("删除选中记录"));
-    modifyButtons->addWidget(changeButton);
-    modifyButtons->addWidget(deleteButton);
-    editForm->addRow(newHint(QStringLiteral("先在下方表格选中一条记录，再修改状态或删除。"
-                                             "签到、请假由员工在“我的考勤”中操作。")));
-    editForm->addRow(QStringLiteral("改为"), m.attNewStatusCombo);
-    editForm->addRow(modifyButtons);
-    connect(changeButton, &QPushButton::clicked, this, &MainWindow::changeAttendance);
-    connect(deleteButton, &QPushButton::clicked, this, &MainWindow::deleteAttendance);
+    changeForm->addRow(QStringLiteral("员工"), m.attEmployeeCombo);
+    changeForm->addRow(QStringLiteral("日期"), m.attDateEdit);
+    changeForm->addRow(QStringLiteral("状态"), m.attNewStatusCombo);
+    connect(dialogAction(changeDialog, changeForm, QStringLiteral("保存考勤")), &QPushButton::clicked, this, &MainWindow::changeAttendance);
 
-    QGroupBox *sumGroup = newGroup(QStringLiteral("月度统计"));
-    QFormLayout *sumForm = new QFormLayout(sumGroup);
-    m.attSumEmployeeCombo = new QComboBox();
-    m.attYearSpin = new QSpinBox();
-    m.attYearSpin->setRange(2000, 2100);
-    m.attYearSpin->setValue(QDate::currentDate().year());
-    m.attMonthSpin = new QSpinBox();
-    m.attMonthSpin->setRange(1, 12);
-    m.attMonthSpin->setValue(QDate::currentDate().month());
-    m.attWorkdayCheck = new QCheckBox(QStringLiteral("应出勤只算周一至周五"));
-    m.attWorkdayCheck->setChecked(true);
-    QPushButton *sumButton = newButton(QStringLiteral("统计"));
-    m.attSummaryLabel = new QLabel(QStringLiteral("尚未统计"));
-    m.attSummaryLabel->setWordWrap(true);
-    m.attSummaryLabel->setStyleSheet(QStringLiteral("color:#2E5C8A;"));
-    sumForm->addRow(QStringLiteral("员工"), m.attSumEmployeeCombo);
-    QHBoxLayout *ym = new QHBoxLayout();
-    ym->addWidget(m.attYearSpin);
-    ym->addWidget(new QLabel(QStringLiteral("年")));
-    ym->addWidget(m.attMonthSpin);
-    ym->addWidget(new QLabel(QStringLiteral("月")));
-    sumForm->addRow(QStringLiteral("年月"), ym);
-    sumForm->addRow(m.attWorkdayCheck);
-    sumForm->addRow(sumButton);
-    sumForm->addRow(m.attSummaryLabel);
-    connect(sumButton, &QPushButton::clicked, this, &MainWindow::summarizeAttendance);
+    QDialog *salaryDialog = newDialog(QStringLiteral("计算月度工资"));
+    QFormLayout *salaryForm = new QFormLayout(salaryDialog);
+    m.payAbsentEdit = newLine(QStringLiteral("每缺勤一次扣款，元"));
+    m.payLeaveEdit = newLine(QStringLiteral("每请假一次扣款，元"));
+    m.payBonusEdit = newLine(QStringLiteral("本月奖金，元"));
+    m.payAbsentEdit->setText("0");
+    m.payLeaveEdit->setText("0");
+    m.payBonusEdit->setText("0");
+    salaryForm->addRow(QStringLiteral("缺勤日扣款"), m.payAbsentEdit);
+    salaryForm->addRow(QStringLiteral("请假日扣款"), m.payLeaveEdit);
+    salaryForm->addRow(QStringLiteral("奖金"), m.payBonusEdit);
+    salaryForm->addRow(newHint(QStringLiteral("使用主页面选定的员工和月份，只能结算已结束月份。")));
+    connect(dialogAction(salaryDialog, salaryForm, QStringLiteral("计算并生成工资单")), &QPushButton::clicked, this, &MainWindow::generatePayroll);
 
-    QGroupBox *fileGroup = newGroup(QStringLiteral("查询 / 文件"));
-    QVBoxLayout *fileLayout = new QVBoxLayout(fileGroup);
-    m.attFilterEdit = newLine(QStringLiteral("日期或员工编号，可空"));
-    m.attFilterStatus = new QComboBox();
-    m.attFilterStatus->addItem(QStringLiteral("全部状态"), -1);
-    m.attFilterStatus->addItem(QStringLiteral("缺勤"), 0);
-    m.attFilterStatus->addItem(QStringLiteral("出勤"), 1);
-    m.attFilterStatus->addItem(QStringLiteral("请假"), 2);
-    QPushButton *filterButton = newButton(QStringLiteral("筛选表格"));
-    QPushButton *saveButton = newButton(QStringLiteral("保存考勤"));
-    QPushButton *loadButton = newButton(QStringLiteral("加载考勤"));
-    fileLayout->addWidget(m.attFilterEdit);
-    fileLayout->addWidget(m.attFilterStatus);
-    fileLayout->addWidget(filterButton);
-    fileLayout->addWidget(saveButton);
-    fileLayout->addWidget(loadButton);
-    fileLayout->addWidget(newHint(QStringLiteral("文件：attendance.txt")));
-    connect(filterButton, &QPushButton::clicked, this, &MainWindow::refreshAttendanceTable);
-    connect(m.attFilterEdit, &QLineEdit::returnPressed, this, &MainWindow::refreshAttendanceTable);
-    connect(m.attFilterStatus, &QComboBox::currentTextChanged, this, [this](const QString &) { refreshAttendanceTable(); });
-    connect(saveButton, &QPushButton::clicked, this, &MainWindow::saveAttendanceFile);
-    connect(loadButton, &QPushButton::clicked, this, &MainWindow::loadAttendanceFile);
-
-    top->addWidget(editGroup, 2);
-    top->addWidget(sumGroup, 2);
-    top->addWidget(fileGroup, 1);
-    root->addLayout(top);
-
-    m.attTable = newTable(QStringList() << QStringLiteral("日期")
-                                        << QStringLiteral("员工编号")
-                                        << QStringLiteral("状态"));
-    root->addWidget(m.attTable, 1);
-    m.attStatusLabel = newHint(QStringLiteral("提示：同一日期同一员工只能有一条记录；没有记录表示“未录入”。"));
-    root->addWidget(m.attStatusLabel);
-
+    QSplitter *splitter = new QSplitter(Qt::Vertical);
+    splitter->setChildrenCollapsible(false);
+    QWidget *attendancePage = new QWidget();
+    QVBoxLayout *attendanceLayout = new QVBoxLayout(attendancePage);
+    attendanceLayout->setContentsMargins(0, 0, 0, 0);
+    QHBoxLayout *attendanceBar = new QHBoxLayout();
+    attendanceBar->addWidget(new QLabel(QStringLiteral("考勤明细")));
+    attendanceBar->addStretch();
+    QPushButton *change = newButton(QStringLiteral("设置考勤"));
+    QPushButton *remove = newButton(QStringLiteral("删除记录"));
+    attendanceBar->addWidget(change);
+    attendanceBar->addWidget(remove);
+    attendanceLayout->addLayout(attendanceBar);
+    m.attTable = newTable({QStringLiteral("日期"), QStringLiteral("员工编号"), QStringLiteral("状态")});
+    attendanceLayout->addWidget(m.attTable);
+    splitter->addWidget(attendancePage);
+    QWidget *payPage = new QWidget();
+    QVBoxLayout *payLayout = new QVBoxLayout(payPage);
+    payLayout->setContentsMargins(0, 0, 0, 0);
+    QHBoxLayout *payBar = new QHBoxLayout();
+    payBar->addWidget(new QLabel(QStringLiteral("工资单")));
+    payBar->addStretch();
+    QPushButton *pay = newButton(QStringLiteral("发放选中工资单"));
+    payBar->addWidget(pay);
+    payLayout->addLayout(payBar);
+    m.payTable = newTable({QStringLiteral("工资单号"), QStringLiteral("员工"), QStringLiteral("年月"),
+                          QStringLiteral("基本工资"), QStringLiteral("缺勤扣"), QStringLiteral("请假扣"),
+                          QStringLiteral("奖金"), QStringLiteral("实发"), QStringLiteral("状态"), QStringLiteral("银行流水")});
+    payLayout->addWidget(m.payTable);
+    splitter->addWidget(payPage);
+    splitter->setStretchFactor(0, 3);
+    splitter->setStretchFactor(1, 2);
+    root->addWidget(splitter, 1);
+    root->addWidget(newHint(QStringLiteral("统一周一至周五排班；签到和请假由员工操作，未来日期的缺勤只是初始值。")));
+    connect(query, &QPushButton::clicked, this, &MainWindow::summarizeAttendance);
+    connect(generate, &QPushButton::clicked, this, [this, salaryDialog]() {
+        if (m.payEmployeeCombo->currentData().toString().isEmpty()) {
+            showError(QStringLiteral("请先选择一名员工。")); return;
+        }
+        salaryDialog->open();
+    });
+    connect(change, &QPushButton::clicked, this, [this, changeDialog]() {
+        if (m.attEmployeeCombo->count() == 0) {
+            showError(QStringLiteral("请先添加一名员工。")); return;
+        }
+        const int row = m.attTable->currentRow();
+        QString id = m.payEmployeeCombo->currentData().toString();
+        const std::vector<Date> dates = buildScheduledDates(m.payYearSpin->value(), m.payMonthSpin->value());
+        if (!dates.empty()) {
+            m.attDateEdit->setDate(QDate(dates[0].year(), dates[0].month(), dates[0].day()));
+        }
+        m.attNewStatusCombo->setCurrentIndex(0);
+        if (row >= 0) {
+            id = m.attTable->item(row, 1)->text();
+            m.attDateEdit->setDate(QDate::fromString(m.attTable->item(row, 0)->text(), "yyyy-MM-dd"));
+            const QString status = m.attTable->item(row, 2)->text();
+            m.attNewStatusCombo->setCurrentIndex(m.attNewStatusCombo->findText(status));
+        }
+        const int employeeIndex = m.attEmployeeCombo->findData(id);
+        if (employeeIndex >= 0) { m.attEmployeeCombo->setCurrentIndex(employeeIndex); }
+        changeDialog->open();
+    });
+    connect(remove, &QPushButton::clicked, this, &MainWindow::deleteAttendance);
+    connect(pay, &QPushButton::clicked, this, &MainWindow::paySelectedPayroll);
+    connect(m.payEmployeeCombo, &QComboBox::currentTextChanged, this, &MainWindow::refreshWorkTables);
+    connect(m.payYearSpin, &QSpinBox::textChanged, this, &MainWindow::refreshWorkTables);
+    connect(m.payMonthSpin, &QSpinBox::textChanged, this, &MainWindow::refreshWorkTables);
     return page;
 }
 
@@ -645,29 +631,23 @@ void MainWindow::refreshAttendanceTable()
     if (!m.attTable) {
         return;
     }
-    const QString filter = m.attFilterEdit ? m.attFilterEdit->text().trimmed() : QString();
-    const int statusFilter = m.attFilterStatus ? m.attFilterStatus->currentData().toInt() : -1;
+    const std::string selectedId = m.payEmployeeCombo->currentData().toString().toStdString();
+    const int year = m.payYearSpin->value();
+    const int month = m.payMonthSpin->value();
     m.attTable->setRowCount(0);
     for (int i = 0; i < attendance.dayCount(); ++i) {
         const dayRecord *d = attendance.dayAt(i);
-        if (!d) {
+        if (!d || d->date.year() != year || d->date.month() != month) {
             continue;
         }
-        const QString date = QString::fromStdString(d->date.toString());
         for (int j = 0; j < d->Recordcnt; ++j) {
-            const QString id = QString::fromStdString(d->dayrecords[j].ID);
-            if (!filter.isEmpty() &&
-                !date.contains(filter, Qt::CaseInsensitive) &&
-                !id.contains(filter, Qt::CaseInsensitive)) {
-                continue;
-            }
-            if (statusFilter >= 0 && d->dayrecords[j].status != statusFilter) {
+            if (!selectedId.empty() && d->dayrecords[j].ID != selectedId) {
                 continue;
             }
             const int row = m.attTable->rowCount();
             m.attTable->insertRow(row);
-            m.attTable->setItem(row, 0, new QTableWidgetItem(date));
-            m.attTable->setItem(row, 1, new QTableWidgetItem(id));
+            m.attTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(d->date.toString())));
+            m.attTable->setItem(row, 1, new QTableWidgetItem(QString::fromStdString(d->dayrecords[j].ID)));
             m.attTable->setItem(row, 2, new QTableWidgetItem(statusText(d->dayrecords[j].status)));
         }
     }
@@ -675,24 +655,43 @@ void MainWindow::refreshAttendanceTable()
 
 void MainWindow::changeAttendance()
 {
-    if (!m.attTable || m.attTable->currentRow() < 0) {
-        showError(QStringLiteral("请先在表格中选择一条考勤记录。"));
+    if (m.attEmployeeCombo->count() == 0) {
+        showError(QStringLiteral("请先添加一名员工。"));
         return;
     }
-    const int row = m.attTable->currentRow();
     Date date;
-    if (!Date::parse(m.attTable->item(row, 0)->text().toStdString(), date)) {
-        showError(QStringLiteral("日期解析失败。"));
+    if (!readDate(m.attDateEdit, date)) {
+        showError(QStringLiteral("请选择有效日期。"));
         return;
     }
-    const std::string id = m.attTable->item(row, 1)->text().toStdString();
-    const int newStatus = m.attNewStatusCombo->currentData().toInt();
-    if (!attendance.changeRecord(date, id, newStatus)) {
-        showError(QStringLiteral("修改失败：记录不存在或状态非法。"));
+    const std::string id = m.attEmployeeCombo->currentData().toString().toStdString();
+    const int status = m.attNewStatusCombo->currentData().toInt();
+    if (!attendance.changeRecord(date, id, status)) {
+        attendance.addRecord(date, id, status);
+    }
+    Record records[MAX_RECORDS];
+    const int count = attendance.getRecord(date, records);
+    bool saved = false;
+    for (int i = 0; i < count; ++i) {
+        if (records[i].ID == id && records[i].status == status) {
+            saved = true;
+            break;
+        }
+    }
+    if (!saved) {
+        showError(QStringLiteral("考勤记录空间不足，无法补录。"));
         return;
     }
-    refreshAttendanceTable();
-    showStatus(QStringLiteral("考勤状态已修改。"));
+    if (!attendanceFile.Save(attendance, kAttendanceFile)) {
+        showError(QStringLiteral("考勤已设置，但文件保存失败。"));
+        return;
+    }
+    m.payEmployeeCombo->setCurrentIndex(m.payEmployeeCombo->findData(QString::fromStdString(id)));
+    m.payYearSpin->setValue(date.year());
+    m.payMonthSpin->setValue(date.month());
+    refreshWorkTables();
+    showStatus(QStringLiteral("考勤记录已保存。"));
+    closeOperationDialog();
 }
 
 void MainWindow::deleteAttendance()
@@ -720,66 +719,54 @@ void MainWindow::deleteAttendance()
         return;
     }
     attendance.deleteRecord(date, id, status);
+    if (!attendanceFile.Save(attendance, kAttendanceFile)) {
+        showError(QStringLiteral("考勤已删除，但保存失败。"));
+    }
     refreshAttendanceTable();
     showStatus(QStringLiteral("考勤记录已删除。"));
 }
 
 void MainWindow::summarizeAttendance()
 {
-    if (!m.attSumEmployeeCombo || m.attSumEmployeeCombo->count() == 0) {
+    if (!m.payEmployeeCombo || m.payEmployeeCombo->count() == 0) {
         showError(QStringLiteral("还没有员工。"));
         return;
     }
-    const std::string id = m.attSumEmployeeCombo->currentData().toString().toStdString();
-    const int year = m.attYearSpin->value();
-    const int month = m.attMonthSpin->value();
-    const std::vector<Date> dates = buildScheduledDates(year, month, m.attWorkdayCheck->isChecked());
+    const std::string id = m.payEmployeeCombo->currentData().toString().toStdString();
+    const int year = m.payYearSpin->value();
+    const int month = m.payMonthSpin->value();
+    if (!initializeAttendance(year, month)) {
+        return;
+    }
+    const std::vector<Date> dates = buildScheduledDates(year, month);
+    refreshAttendanceTable();
+    refreshPayrollTable();
+    if (id.empty()) {
+        m.paySummaryLabel->setText(QStringLiteral("已显示全体员工本月考勤和工资单；选择具体员工可查看统计或生成工资单。"));
+        return;
+    }
 
     AttendanceSummary summary;
     std::string message;
     if (!attendance.summarize(id, year, month, dates, summary, message)) {
-        m.attSummaryLabel->setText(QStringLiteral("统计失败：") + QString::fromStdString(message));
+        m.paySummaryLabel->setText(QStringLiteral("统计失败：") + QString::fromStdString(message));
         return;
     }
-    m.attSummaryLabel->setText(
+    m.paySummaryLabel->setText(
         QStringLiteral("应出勤 %1 天；出勤 %2；缺勤 %3；请假 %4；未录入 %5")
             .arg(summary.scheduledDays).arg(summary.presentDays)
             .arg(summary.absentDays).arg(summary.leaveDays).arg(summary.missingDays));
 }
 
-void MainWindow::saveAttendanceFile()
-{
-    if (attendanceFile.Save(attendance, kAttendanceFile)) {
-        showInfo(QStringLiteral("考勤已保存到 attendance.txt。"));
-    } else {
-        showError(QStringLiteral("考勤保存失败，请检查数据目录。"));
-    }
-}
-
-void MainWindow::loadAttendanceFile()
-{
-    if (attendanceFile.Load(attendance, kAttendanceFile)) {
-        refreshAttendanceTable();
-        showInfo(QStringLiteral("考勤已从 attendance.txt 加载。"));
-    } else {
-        showError(QStringLiteral("考勤加载失败：文件不存在或格式错误。"));
-    }
-}
-
-// ============================================================================
-// [界面] 银行管理标签页
-// ============================================================================
+// 银行管理标签页
 QWidget *MainWindow::createBankTab()
 {
     QWidget *page = new QWidget();
     QVBoxLayout *root = new QVBoxLayout(page);
-    root->setContentsMargins(8, 8, 8, 8);
-    root->setSpacing(6);
-
-    QHBoxLayout *top = new QHBoxLayout();
-
-    QGroupBox *openGroup = newGroup(QStringLiteral("开户"));
-    QFormLayout *openForm = new QFormLayout(openGroup);
+    root->setContentsMargins(12, 12, 12, 12);
+    root->setSpacing(10);
+    m.bankOpenDialog = newDialog(QStringLiteral("开立银行账户"));
+    QFormLayout *openForm = new QFormLayout(m.bankOpenDialog);
     m.bankOpenNoEdit = newLine(QStringLiteral("6~19 位数字"));
     m.bankOpenOwnerCombo = new QComboBox();
     m.bankOpenTypeCombo = new QComboBox();
@@ -787,103 +774,108 @@ QWidget *MainWindow::createBankTab()
     m.bankOpenTypeCombo->addItem(QStringLiteral("信用账户"), 2);
     m.bankOpenInitialEdit = newLine(QStringLiteral("首次存款，元"));
     m.bankOpenExtraEdit = newLine(QStringLiteral("最低留存余额，元"));
-    QPushButton *openButton = newButton(QStringLiteral("开户"));
-    openForm->addRow(QStringLiteral("账号"), m.bankOpenNoEdit);
+    m.bankOpenInitialEdit->setText("0");
+    m.bankOpenExtraEdit->setText("0");
     openForm->addRow(QStringLiteral("员工"), m.bankOpenOwnerCombo);
-    openForm->addRow(QStringLiteral("类型"), m.bankOpenTypeCombo);
+    openForm->addRow(QStringLiteral("账号"), m.bankOpenNoEdit);
+    openForm->addRow(QStringLiteral("账户类型"), m.bankOpenTypeCombo);
     openForm->addRow(QStringLiteral("首次存款"), m.bankOpenInitialEdit);
-    openForm->addRow(QStringLiteral("额外参数"), m.bankOpenExtraEdit);
-    openForm->addRow(openButton);
-    connect(m.bankOpenTypeCombo, &QComboBox::currentTextChanged, this, [this](const QString &) {
-        if (m.bankOpenTypeCombo->currentData().toInt() == 2) {
-            m.bankOpenExtraEdit->setPlaceholderText(QStringLiteral("信用额度，元"));
-        } else {
-            m.bankOpenExtraEdit->setPlaceholderText(QStringLiteral("最低留存余额，元"));
-        }
+    openForm->addRow(QStringLiteral("最低余额 / 信用额度"), m.bankOpenExtraEdit);
+    connect(m.bankOpenTypeCombo, &QComboBox::currentTextChanged, this, [this]() {
+        m.bankOpenExtraEdit->setPlaceholderText(m.bankOpenTypeCombo->currentData().toInt() == 2
+                                              ? QStringLiteral("信用额度，元") : QStringLiteral("最低留存余额，元"));
     });
-    connect(openButton, &QPushButton::clicked, this, &MainWindow::openBankAccount);
+    connect(dialogAction(m.bankOpenDialog, openForm, QStringLiteral("确认开户")), &QPushButton::clicked, this, &MainWindow::openBankAccount);
 
-    QGroupBox *moneyGroup = newGroup(QStringLiteral("存取款 / 转账 / 结息"));
-    QGridLayout *moneyGrid = new QGridLayout(moneyGroup);
+    QDialog *moneyDialog = newDialog(QStringLiteral("账户资金操作"));
+    QVBoxLayout *moneyLayout = new QVBoxLayout(moneyDialog);
+    QTabWidget *operations = new QTabWidget();
+    QWidget *depositPage = new QWidget();
+    QFormLayout *depositForm = new QFormLayout(depositPage);
     m.bankDepositAccountEdit = newLine(QStringLiteral("账号"));
     m.bankDepositAmountEdit = newLine(QStringLiteral("金额，元"));
+    depositForm->addRow(QStringLiteral("账号"), m.bankDepositAccountEdit);
+    depositForm->addRow(QStringLiteral("存款金额"), m.bankDepositAmountEdit);
+    connect(dialogAction(moneyDialog, depositForm, QStringLiteral("确认存款")), &QPushButton::clicked, this, &MainWindow::depositMoney);
+    operations->addTab(depositPage, QStringLiteral("存款"));
+    QWidget *withdrawPage = new QWidget();
+    QFormLayout *withdrawForm = new QFormLayout(withdrawPage);
     m.bankWithdrawAccountEdit = newLine(QStringLiteral("账号"));
     m.bankWithdrawAmountEdit = newLine(QStringLiteral("金额，元"));
+    withdrawForm->addRow(QStringLiteral("账号"), m.bankWithdrawAccountEdit);
+    withdrawForm->addRow(QStringLiteral("取款金额"), m.bankWithdrawAmountEdit);
+    connect(dialogAction(moneyDialog, withdrawForm, QStringLiteral("确认取款")), &QPushButton::clicked, this, &MainWindow::withdrawMoney);
+    operations->addTab(withdrawPage, QStringLiteral("取款"));
+    QWidget *transferPage = new QWidget();
+    QFormLayout *transferForm = new QFormLayout(transferPage);
     m.bankFromEdit = newLine(QStringLiteral("转出账号"));
     m.bankToEdit = newLine(QStringLiteral("转入账号"));
     m.bankTransferAmountEdit = newLine(QStringLiteral("金额，元"));
-    QPushButton *depositButton = newButton(QStringLiteral("存款"));
-    QPushButton *withdrawButton = newButton(QStringLiteral("取款"));
-    QPushButton *transferButton = newButton(QStringLiteral("转账"));
-    QPushButton *interestButton = newButton(QStringLiteral("结息"));
-    moneyGrid->addWidget(m.bankDepositAccountEdit, 0, 0);
-    moneyGrid->addWidget(m.bankDepositAmountEdit, 0, 1);
-    moneyGrid->addWidget(depositButton, 0, 2);
-    moneyGrid->addWidget(m.bankWithdrawAccountEdit, 1, 0);
-    moneyGrid->addWidget(m.bankWithdrawAmountEdit, 1, 1);
-    moneyGrid->addWidget(withdrawButton, 1, 2);
-    moneyGrid->addWidget(m.bankFromEdit, 2, 0);
-    moneyGrid->addWidget(m.bankToEdit, 2, 1);
-    moneyGrid->addWidget(m.bankTransferAmountEdit, 2, 2);
-    moneyGrid->addWidget(transferButton, 2, 3);
-    moneyGrid->addWidget(interestButton, 3, 3);
-    connect(depositButton, &QPushButton::clicked, this, &MainWindow::depositMoney);
-    connect(withdrawButton, &QPushButton::clicked, this, &MainWindow::withdrawMoney);
-    connect(transferButton, &QPushButton::clicked, this, &MainWindow::transferMoney);
-    connect(interestButton, &QPushButton::clicked, this, &MainWindow::settleInterest);
+    transferForm->addRow(QStringLiteral("转出账号"), m.bankFromEdit);
+    transferForm->addRow(QStringLiteral("转入账号"), m.bankToEdit);
+    transferForm->addRow(QStringLiteral("转账金额"), m.bankTransferAmountEdit);
+    connect(dialogAction(moneyDialog, transferForm, QStringLiteral("确认转账")), &QPushButton::clicked, this, &MainWindow::transferMoney);
+    operations->addTab(transferPage, QStringLiteral("转账"));
+    moneyLayout->addWidget(operations);
 
-    QGroupBox *queryGroup = newGroup(QStringLiteral("查询 / 保存"));
-    QFormLayout *queryForm = new QFormLayout(queryGroup);
-    m.bankFilterAccountEdit = newLine(QStringLiteral("账号/员工编号，可空"));
-    QHBoxLayout *dateRange = new QHBoxLayout();
+    QHBoxLayout *bar = new QHBoxLayout();
+    QPushButton *open = newButton(QStringLiteral("开户"));
+    open->setObjectName(QStringLiteral("primaryButton"));
+    QPushButton *money = newButton(QStringLiteral("资金操作"));
+    QPushButton *close = newButton(QStringLiteral("销户"));
+    QPushButton *interest = newButton(QStringLiteral("结息"));
+    m.bankFilterAccountEdit = newLine(QStringLiteral("账号 / 员工编号 / 姓名"));
+    QPushButton *query = newButton(QStringLiteral("查询"));
+    bar->addWidget(open);
+    bar->addWidget(money);
+    bar->addWidget(close);
+    bar->addWidget(interest);
+    bar->addStretch();
+    bar->addWidget(m.bankFilterAccountEdit, 1);
+    bar->addWidget(query);
+    root->addLayout(bar);
+    QTabWidget *views = new QTabWidget();
+    m.accountTable = newTable({QStringLiteral("账号"), QStringLiteral("员工编号"), QStringLiteral("姓名"),
+                              QStringLiteral("类型"), QStringLiteral("余额"), QStringLiteral("最低余额/额度"),
+                              QStringLiteral("开户日期"), QStringLiteral("上次结息")});
+    views->addTab(m.accountTable, QStringLiteral("账户列表"));
+    QWidget *transactions = new QWidget();
+    QVBoxLayout *txLayout = new QVBoxLayout(transactions);
+    QHBoxLayout *dates = new QHBoxLayout();
     m.txBeginDateEdit = new QDateEdit(QDate::currentDate().addMonths(-1));
-    m.txBeginDateEdit->setCalendarPopup(true);
-    m.txBeginDateEdit->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
     m.txEndDateEdit = new QDateEdit(QDate::currentDate());
-    m.txEndDateEdit->setCalendarPopup(true);
-    m.txEndDateEdit->setDisplayFormat(QStringLiteral("yyyy-MM-dd"));
-    dateRange->addWidget(m.txBeginDateEdit);
-    dateRange->addWidget(new QLabel(QStringLiteral("至")));
-    dateRange->addWidget(m.txEndDateEdit);
-    QPushButton *filterButton = newButton(QStringLiteral("查询流水"));
-    QPushButton *saveButton = newButton(QStringLiteral("保存银行数据"));
-    QPushButton *loadButton = newButton(QStringLiteral("加载银行数据"));
-    QPushButton *closeButton = newButton(QStringLiteral("销户选中账户"));
-    queryForm->addRow(QStringLiteral("账号/员工筛选"), m.bankFilterAccountEdit);
-    queryForm->addRow(QStringLiteral("日期范围"), dateRange);
-    queryForm->addRow(filterButton);
-    queryForm->addRow(closeButton);
-    QHBoxLayout *fileButtons = new QHBoxLayout();
-    fileButtons->addWidget(saveButton);
-    fileButtons->addWidget(loadButton);
-    queryForm->addRow(fileButtons);
-    connect(filterButton, &QPushButton::clicked, this, &MainWindow::filterBankTransactions);
-    connect(closeButton, &QPushButton::clicked, this, &MainWindow::closeBankAccount);
-    connect(saveButton, &QPushButton::clicked, this, &MainWindow::saveBankData);
-    connect(loadButton, &QPushButton::clicked, this, &MainWindow::loadBankData);
-
-    top->addWidget(openGroup, 1);
-    top->addWidget(moneyGroup, 2);
-    top->addWidget(queryGroup, 1);
-    root->addLayout(top);
-
-    m.accountTable = newTable(QStringList() << QStringLiteral("账号") << QStringLiteral("员工编号")
-                                             << QStringLiteral("姓名") << QStringLiteral("类型")
-                                             << QStringLiteral("余额") << QStringLiteral("最低余额/信用额度")
-                                             << QStringLiteral("开户日期") << QStringLiteral("上次结息"));
-    root->addWidget(new QLabel(QStringLiteral("账户列表")));
-    root->addWidget(m.accountTable, 1);
-
-    m.txTable = newTable(QStringList() << QStringLiteral("流水号") << QStringLiteral("账号")
-                                       << QStringLiteral("类型") << QStringLiteral("金额")
-                                       << QStringLiteral("交易后余额") << QStringLiteral("日期")
-                                       << QStringLiteral("备注"));
-    root->addWidget(new QLabel(QStringLiteral("交易流水")));
-    root->addWidget(m.txTable, 1);
-
-    m.bankStatusLabel = newHint(QStringLiteral("提示：银行数据文件位于 data/accounts.csv、data/transactions.csv。"));
-    root->addWidget(m.bankStatusLabel);
-
+    for (QDateEdit *edit : {m.txBeginDateEdit, m.txEndDateEdit}) {
+        edit->setCalendarPopup(true); edit->setDisplayFormat("yyyy-MM-dd");
+    }
+    dates->addWidget(new QLabel(QStringLiteral("日期范围")));
+    dates->addWidget(m.txBeginDateEdit);
+    dates->addWidget(new QLabel(QStringLiteral("至")));
+    dates->addWidget(m.txEndDateEdit);
+    QPushButton *txQuery = newButton(QStringLiteral("查询流水"));
+    dates->addWidget(txQuery);
+    dates->addStretch();
+    txLayout->addLayout(dates);
+    m.txTable = newTable({QStringLiteral("流水号"), QStringLiteral("账号"), QStringLiteral("类型"),
+                         QStringLiteral("金额"), QStringLiteral("交易后余额"), QStringLiteral("日期"), QStringLiteral("备注")});
+    txLayout->addWidget(m.txTable);
+    views->addTab(transactions, QStringLiteral("交易流水"));
+    root->addWidget(views, 1);
+    connect(open, &QPushButton::clicked, m.bankOpenDialog, &QDialog::open);
+    connect(money, &QPushButton::clicked, this, [this, moneyDialog]() {
+        BankAccount *account = selectedAccount();
+        if (account) {
+            const QString no = QString::fromStdString(account->accountNo());
+            m.bankDepositAccountEdit->setText(no);
+            m.bankWithdrawAccountEdit->setText(no);
+            m.bankFromEdit->setText(no);
+        }
+        moneyDialog->open();
+    });
+    connect(close, &QPushButton::clicked, this, &MainWindow::closeBankAccount);
+    connect(interest, &QPushButton::clicked, this, &MainWindow::settleInterest);
+    connect(query, &QPushButton::clicked, this, &MainWindow::filterBankTransactions);
+    connect(txQuery, &QPushButton::clicked, this, &MainWindow::filterBankTransactions);
+    connect(m.bankFilterAccountEdit, &QLineEdit::returnPressed, this, &MainWindow::filterBankTransactions);
     return page;
 }
 
@@ -901,7 +893,7 @@ void MainWindow::refreshBankAccounts()
             continue;
         }
         const QString no = QString::fromStdString(a->accountNo());
-        // [刷新] 账号、员工编号、姓名任意一个包含筛选词都显示，支持按员工查询。
+        // 账号、员工编号、姓名任意一个包含筛选词都显示，支持按员工查询。
         if (!filter.isEmpty() &&
             !no.contains(filter, Qt::CaseInsensitive) &&
             !QString::fromStdString(a->ownerId()).contains(filter, Qt::CaseInsensitive) &&
@@ -939,7 +931,12 @@ void MainWindow::refreshBankTransactions()
     const std::vector<Transaction> &txs = bank.getTransactions();
     for (size_t i = 0; i < txs.size(); ++i) {
         const Transaction &t = txs[i];
-        if (!filter.isEmpty() && !QString::fromStdString(t.accountNo()).contains(filter, Qt::CaseInsensitive)) {
+        BankAccount *account = bank.findAccount(t.accountNo());
+        QString accountText = QString::fromStdString(t.accountNo());
+        if (account) {
+            accountText += " " + QString::fromStdString(account->ownerId() + " " + account->ownerName());
+        }
+        if (!filter.isEmpty() && !accountText.contains(filter, Qt::CaseInsensitive)) {
             continue;
         }
         if (hasBegin && t.date().isBefore(begin)) {
@@ -989,14 +986,13 @@ void MainWindow::openBankAccount()
         return;
     }
     const int type = m.bankOpenTypeCombo->currentData().toInt();
-    Employee owner(ownerId, ownerAnimal->getname());
     std::string message;
-    if (!bank.openAccount(no.toStdString(), owner, type, initial, extra, message)) {
+    if (!bank.openAccount(no.toStdString(), *ownerAnimal, type, initial, extra, message)) {
         showError(QString::fromStdString(message));
         return;
     }
 
-    // [功能] 开户成功后把账号绑定到员工，工资/食物购买才能找到账户。
+    // 开户成功后把账号绑定到员工，工资/食物购买才能找到账户。
     ownerAnimal->setBankAccountNo(no.toStdString());
     try {
         animalManager.save();
@@ -1004,6 +1000,7 @@ void MainWindow::openBankAccount()
     }
     refreshAll();
     showInfo(QString::fromStdString(message));
+    closeOperationDialog();
 }
 
 void MainWindow::closeBankAccount()
@@ -1053,6 +1050,7 @@ void MainWindow::depositMoney()
     }
     refreshAll();
     showInfo(QString::fromStdString(message));
+    closeOperationDialog();
 }
 
 void MainWindow::withdrawMoney()
@@ -1070,6 +1068,7 @@ void MainWindow::withdrawMoney()
     }
     refreshAll();
     showInfo(QString::fromStdString(message));
+    closeOperationDialog();
 }
 
 void MainWindow::transferMoney()
@@ -1088,6 +1087,7 @@ void MainWindow::transferMoney()
     }
     refreshAll();
     showInfo(QString::fromStdString(message));
+    closeOperationDialog();
 }
 
 void MainWindow::settleInterest()
@@ -1101,100 +1101,13 @@ void MainWindow::settleInterest()
     showInfo(QString::fromStdString(message));
 }
 
-void MainWindow::saveBankData()
-{
-    if (bank.saveData()) {
-        showInfo(QStringLiteral("银行数据已保存到 data/。"));
-    } else {
-        showError(QStringLiteral("银行数据保存失败。"));
-    }
-}
-
-void MainWindow::loadBankData()
-{
-    bank.loadData();
-    refreshAll();
-    showInfo(QStringLiteral("银行数据已加载。"));
-}
-
 void MainWindow::filterBankTransactions()
 {
     refreshBankAccounts();
     refreshBankTransactions();
 }
 
-// ============================================================================
-// [界面] 工资管理标签页
-// ============================================================================
-QWidget *MainWindow::createPayrollTab()
-{
-    QWidget *page = new QWidget();
-    QVBoxLayout *root = new QVBoxLayout(page);
-    root->setContentsMargins(8, 8, 8, 8);
-    root->setSpacing(6);
-
-    QGroupBox *genGroup = newGroup(QStringLiteral("汇总考勤并生成工资单"));
-    QGridLayout *genGrid = new QGridLayout(genGroup);
-    m.payEmployeeCombo = new QComboBox();
-    m.payYearSpin = new QSpinBox();
-    m.payYearSpin->setRange(2000, 2100);
-    m.payYearSpin->setValue(QDate::currentDate().year());
-    m.payMonthSpin = new QSpinBox();
-    m.payMonthSpin->setRange(1, 12);
-    m.payMonthSpin->setValue(QDate::currentDate().month());
-    m.payWorkdayCheck = new QCheckBox(QStringLiteral("应出勤只算周一至周五"));
-    m.payWorkdayCheck->setChecked(true);
-    m.payAbsentEdit = newLine(QStringLiteral("缺勤每天扣款，元"));
-    m.payAbsentEdit->setText(QStringLiteral("0"));
-    m.payLeaveEdit = newLine(QStringLiteral("请假每天扣款，元"));
-    m.payLeaveEdit->setText(QStringLiteral("0"));
-    m.payBonusEdit = newLine(QStringLiteral("奖金，元"));
-    m.payBonusEdit->setText(QStringLiteral("0"));
-    QPushButton *generateButton = newButton(QStringLiteral("计算并生成工资单"));
-    m.paySummaryLabel = new QLabel(QStringLiteral("尚未生成"));
-    m.paySummaryLabel->setWordWrap(true);
-    genGrid->addWidget(new QLabel(QStringLiteral("员工")), 0, 0);
-    genGrid->addWidget(m.payEmployeeCombo, 0, 1);
-    genGrid->addWidget(new QLabel(QStringLiteral("年月")), 0, 2);
-    genGrid->addWidget(m.payYearSpin, 0, 3);
-    genGrid->addWidget(new QLabel(QStringLiteral("年")), 0, 4);
-    genGrid->addWidget(m.payMonthSpin, 0, 5);
-    genGrid->addWidget(new QLabel(QStringLiteral("月")), 0, 6);
-    genGrid->addWidget(new QLabel(QStringLiteral("缺勤扣款")), 1, 0);
-    genGrid->addWidget(m.payAbsentEdit, 1, 1);
-    genGrid->addWidget(new QLabel(QStringLiteral("请假扣款")), 1, 2);
-    genGrid->addWidget(m.payLeaveEdit, 1, 3);
-    genGrid->addWidget(new QLabel(QStringLiteral("奖金")), 1, 4);
-    genGrid->addWidget(m.payBonusEdit, 1, 5);
-    genGrid->addWidget(m.payWorkdayCheck, 1, 6);
-    genGrid->addWidget(generateButton, 2, 0, 1, 2);
-    genGrid->addWidget(m.paySummaryLabel, 2, 2, 1, 5);
-    connect(generateButton, &QPushButton::clicked, this, &MainWindow::generatePayroll);
-
-    QHBoxLayout *buttons = new QHBoxLayout();
-    QPushButton *payButton = newButton(QStringLiteral("发放选中工资单"));
-    QPushButton *saveButton = newButton(QStringLiteral("保存工资单"));
-    QPushButton *loadButton = newButton(QStringLiteral("加载工资单"));
-    buttons->addWidget(payButton);
-    buttons->addWidget(saveButton);
-    buttons->addWidget(loadButton);
-    buttons->addStretch();
-    connect(payButton, &QPushButton::clicked, this, &MainWindow::paySelectedPayroll);
-    connect(saveButton, &QPushButton::clicked, this, &MainWindow::savePayrollFile);
-    connect(loadButton, &QPushButton::clicked, this, &MainWindow::loadPayrollFile);
-
-    root->addWidget(genGroup);
-    root->addLayout(buttons);
-    m.payTable = newTable(QStringList() << QStringLiteral("工资单号") << QStringLiteral("员工")
-                                        << QStringLiteral("年月") << QStringLiteral("基本工资")
-                                        << QStringLiteral("缺勤扣") << QStringLiteral("请假扣")
-                                        << QStringLiteral("奖金") << QStringLiteral("实发")
-                                        << QStringLiteral("状态") << QStringLiteral("银行流水号"));
-    root->addWidget(m.payTable, 1);
-    m.payStatusLabel = newHint(QStringLiteral("提示：同一员工同一年月只能生成一张工资单；已发放工资单不能重复发放。"));
-    root->addWidget(m.payStatusLabel);
-    return page;
-}
+// 考勤工资页面中的工资单操作。
 
 void MainWindow::refreshPayrollTable()
 {
@@ -1205,6 +1118,12 @@ void MainWindow::refreshPayrollTable()
     const std::vector<PayrollRecord> &records = payroll.getPayrollRecords();
     for (size_t i = 0; i < records.size(); ++i) {
         const PayrollRecord &r = records[i];
+        const std::string id = m.payEmployeeCombo->currentData().toString().toStdString();
+        if (r.year != m.payYearSpin->value() || r.month != m.payMonthSpin->value() ||
+            (!id.empty() && r.employeeId != id)) {
+            continue;
+        }
+
         const int row = m.payTable->rowCount();
         m.payTable->insertRow(row);
         m.payTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(r.payrollId)));
@@ -1227,6 +1146,10 @@ void MainWindow::generatePayroll()
         return;
     }
     const std::string id = m.payEmployeeCombo->currentData().toString().toStdString();
+    if (id.empty()) {
+        showError(QStringLiteral("请先选择一名员工。"));
+        return;
+    }
     animal *a = animalManager.findbyid(id);
     if (!a) {
         showError(QStringLiteral("员工不存在。"));
@@ -1244,7 +1167,15 @@ void MainWindow::generatePayroll()
     }
     const int year = m.payYearSpin->value();
     const int month = m.payMonthSpin->value();
-    const std::vector<Date> dates = buildScheduledDates(year, month, m.payWorkdayCheck->isChecked());
+    if (QDate::currentDate() < QDate(year, month, 1).addMonths(1)) {
+        showError(QStringLiteral("该月份尚未结束，请在月份结束后结算工资。"));
+        return;
+    }
+    if (!initializeAttendance(year, month)) {
+        return;
+    }
+    const std::vector<Date> dates = buildScheduledDates(year, month);
+    refreshAttendanceTable();
 
     AttendanceSummary summary;
     std::string message;
@@ -1271,6 +1202,7 @@ void MainWindow::generatePayroll()
             .arg(QString::fromStdString(moneyToString(record.finalsalary)))
             .arg(summary.scheduledDays).arg(summary.presentDays)
             .arg(summary.absentDays).arg(summary.leaveDays).arg(summary.missingDays));
+    closeOperationDialog();
 }
 
 void MainWindow::paySelectedPayroll()
@@ -1280,11 +1212,24 @@ void MainWindow::paySelectedPayroll()
         return;
     }
     const int row = m.payTable->currentRow();
-    if (row >= (int)payroll.getPayrollRecords().size()) {
-        showError(QStringLiteral("工资单索引无效。"));
+    const std::string payrollId = m.payTable->item(row, 0)->text().toStdString();
+    const std::vector<PayrollRecord> &records = payroll.getPayrollRecords();
+    int index = -1;
+    for (int i = 0; i < (int)records.size(); ++i) {
+        if (records[i].payrollId == payrollId) {
+            index = i;
+            break;
+        }
+    }
+    if (index == -1) {
+        showError(QStringLiteral("未找到对应的工资单。"));
         return;
     }
-    PayrollRecord record = payroll.getPayrollRecords()[row];
+    PayrollRecord record = records[index];
+    if (QDate::currentDate() < QDate(record.year, record.month, 1).addMonths(1)) {
+        showError(QStringLiteral("该月份尚未结束，不能发放整月工资。"));
+        return;
+    }
     if (record.status == "已发放") {
         showError(QStringLiteral("该工资单已发放。"));
         return;
@@ -1299,92 +1244,52 @@ void MainWindow::paySelectedPayroll()
     showInfo(QString::fromStdString(message));
 }
 
-void MainWindow::savePayrollFile()
-{
-    if (payroll.savePayrolls(kPayrollFile)) {
-        showInfo(QStringLiteral("工资单已保存到 payroll.txt。"));
-    } else {
-        showError(QStringLiteral("工资单保存失败。"));
-    }
-}
-
-void MainWindow::loadPayrollFile()
-{
-    if (payroll.loadPayrolls(kPayrollFile)) {
-        refreshPayrollTable();
-        showInfo(QStringLiteral("工资单已从 payroll.txt 加载。"));
-    } else {
-        showError(QStringLiteral("工资单加载失败：文件不存在或格式错误。"));
-    }
-}
-
-// ============================================================================
-// [界面] 食物管理标签页
-// ============================================================================
+// 食物管理标签页
 QWidget *MainWindow::createFoodTab()
 {
     QWidget *page = new QWidget();
     QVBoxLayout *root = new QVBoxLayout(page);
-    root->setContentsMargins(8, 8, 8, 8);
-    root->setSpacing(6);
-
-    QHBoxLayout *top = new QHBoxLayout();
-
-    QGroupBox *catalogGroup = newGroup(QStringLiteral("食物目录"));
-    QFormLayout *catalogForm = new QFormLayout(catalogGroup);
+    root->setContentsMargins(12, 12, 12, 12);
+    root->setSpacing(10);
+    QDialog *addDialog = newDialog(QStringLiteral("添加食物"));
+    QFormLayout *form = new QFormLayout(addDialog);
     m.foodIdEdit = newLine(QStringLiteral("如 F001"));
     m.foodNameEdit = newLine(QStringLiteral("食物名称"));
     m.foodPriceEdit = newLine(QStringLiteral("单价，元/kg"));
-    QPushButton *addButton = newButton(QStringLiteral("添加食物"));
-    catalogForm->addRow(QStringLiteral("编号"), m.foodIdEdit);
-    catalogForm->addRow(QStringLiteral("名称"), m.foodNameEdit);
-    catalogForm->addRow(QStringLiteral("单价"), m.foodPriceEdit);
-    catalogForm->addRow(addButton);
-    connect(addButton, &QPushButton::clicked, this, &MainWindow::addFood);
-
-    QGroupBox *buyGroup = newGroup(QStringLiteral("购买食物"));
-    QFormLayout *buyForm = new QFormLayout(buyGroup);
-    m.foodBuyEmployeeCombo = new QComboBox();
-    m.foodBuyFoodCombo = new QComboBox();
-    m.foodQtySpin = new QSpinBox();
-    m.foodQtySpin->setRange(1, 10000);
-    m.foodQtySpin->setValue(1);
-    QPushButton *buyButton = newButton(QStringLiteral("购买并从账户扣款"));
-    buyForm->addRow(QStringLiteral("员工"), m.foodBuyEmployeeCombo);
-    buyForm->addRow(QStringLiteral("食物"), m.foodBuyFoodCombo);
-    buyForm->addRow(QStringLiteral("数量 kg"), m.foodQtySpin);
-    buyForm->addRow(buyButton);
-    connect(buyButton, &QPushButton::clicked, this, &MainWindow::purchaseFood);
-
-    QGroupBox *fileGroup = newGroup(QStringLiteral("文件"));
-    QVBoxLayout *fileLayout = new QVBoxLayout(fileGroup);
-    QPushButton *saveButton = newButton(QStringLiteral("保存食物/购买记录"));
-    QPushButton *loadButton = newButton(QStringLiteral("加载食物/购买记录"));
-    fileLayout->addWidget(saveButton);
-    fileLayout->addWidget(loadButton);
-    fileLayout->addWidget(newHint(QStringLiteral("文件：foods.txt、purchases.txt")));
-    connect(saveButton, &QPushButton::clicked, this, &MainWindow::saveFoodFile);
-    connect(loadButton, &QPushButton::clicked, this, &MainWindow::loadFoodFile);
-
-    top->addWidget(catalogGroup, 2);
-    top->addWidget(buyGroup, 2);
-    top->addWidget(fileGroup, 1);
-    root->addLayout(top);
-
-    m.foodTable = newTable(QStringList() << QStringLiteral("编号") << QStringLiteral("名称") << QStringLiteral("单价 元/kg"));
-    root->addWidget(new QLabel(QStringLiteral("食物目录")));
-    root->addWidget(m.foodTable, 1);
-
-    m.purchaseTable = newTable(QStringList() << QStringLiteral("购买单") << QStringLiteral("员工")
-                                              << QStringLiteral("食物") << QStringLiteral("数量 kg")
-                                              << QStringLiteral("金额") << QStringLiteral("账号")
-                                              << QStringLiteral("日期") << QStringLiteral("状态")
-                                              << QStringLiteral("银行流水"));
-    root->addWidget(new QLabel(QStringLiteral("购买记录")));
-    root->addWidget(m.purchaseTable, 1);
-    m.foodStatusLabel = newHint(QStringLiteral("提示：购买成功后会自动写一条饲养记录；购买单保存在 purchases.txt。"));
-    root->addWidget(m.foodStatusLabel);
-
+    form->addRow(QStringLiteral("编号"), m.foodIdEdit);
+    form->addRow(QStringLiteral("名称"), m.foodNameEdit);
+    form->addRow(QStringLiteral("单价"), m.foodPriceEdit);
+    connect(dialogAction(addDialog, form, QStringLiteral("添加食物")), &QPushButton::clicked, this, &MainWindow::addFood);
+    QHBoxLayout *bar = new QHBoxLayout();
+    QPushButton *add = newButton(QStringLiteral("添加食物"));
+    add->setObjectName(QStringLiteral("primaryButton"));
+    QPushButton *refresh = newButton(QStringLiteral("刷新"));
+    bar->addWidget(add);
+    bar->addWidget(refresh);
+    bar->addStretch();
+    bar->addWidget(newHint(QStringLiteral("员工自行购买，管理者维护目录和查询记录。")));
+    root->addLayout(bar);
+    QTabWidget *views = new QTabWidget();
+    m.foodTable = newTable({QStringLiteral("编号"), QStringLiteral("名称"), QStringLiteral("单价 元/kg")});
+    views->addTab(m.foodTable, QStringLiteral("食物目录"));
+    QWidget *history = new QWidget();
+    QVBoxLayout *historyLayout = new QVBoxLayout(history);
+    QHBoxLayout *queryBar = new QHBoxLayout();
+    m.purchaseFilterEdit = newLine(QStringLiteral("员工编号 / 食物 / 日期 / 银行流水号，可空"));
+    QPushButton *query = newButton(QStringLiteral("查询购买记录"));
+    queryBar->addWidget(m.purchaseFilterEdit, 1);
+    queryBar->addWidget(query);
+    historyLayout->addLayout(queryBar);
+    m.purchaseTable = newTable({QStringLiteral("购买单"), QStringLiteral("员工"), QStringLiteral("食物"),
+                               QStringLiteral("数量 kg"), QStringLiteral("金额"), QStringLiteral("账号"),
+                               QStringLiteral("日期"), QStringLiteral("状态"), QStringLiteral("银行流水")});
+    historyLayout->addWidget(m.purchaseTable);
+    views->addTab(history, QStringLiteral("购买记录"));
+    root->addWidget(views, 1);
+    connect(add, &QPushButton::clicked, addDialog, &QDialog::open);
+    connect(query, &QPushButton::clicked, this, &MainWindow::refreshPurchaseTable);
+    connect(m.purchaseFilterEdit, &QLineEdit::returnPressed, this, &MainWindow::refreshPurchaseTable);
+    connect(refresh, &QPushButton::clicked, this, [this]() { refreshFoodTable(); refreshPurchaseTable(); });
     return page;
 }
 
@@ -1409,10 +1314,18 @@ void MainWindow::refreshPurchaseTable()
     if (!m.purchaseTable) {
         return;
     }
+    const QString filter = m.purchaseFilterEdit ? m.purchaseFilterEdit->text().trimmed() : QString();
     m.purchaseTable->setRowCount(0);
     const std::vector<FoodPurchaseRecord> &records = foodService.getPurchaseRecords();
     for (size_t i = 0; i < records.size(); ++i) {
         const FoodPurchaseRecord &r = records[i];
+        const QString text = QString::fromStdString(r.purchaseId + " " + r.employeeId + " " +
+                                                   r.foodId + " " + r.foodName + " " +
+                                                   r.accountNo + " " + r.date) +
+                             " " + QString::number(r.bankTransactionId);
+        if (!filter.isEmpty() && !text.contains(filter, Qt::CaseInsensitive)) {
+            continue;
+        }
         const int row = m.purchaseTable->rowCount();
         m.purchaseTable->insertRow(row);
         m.purchaseTable->setItem(row, 0, new QTableWidgetItem(QString::fromStdString(r.purchaseId)));
@@ -1450,69 +1363,5 @@ void MainWindow::addFood()
     fillFoodCombos();
     refreshFoodTable();
     showStatus(QStringLiteral("食物添加成功。"));
-}
-
-void MainWindow::purchaseFood()
-{
-    if (!m.foodBuyEmployeeCombo || m.foodBuyEmployeeCombo->count() == 0) {
-        showError(QStringLiteral("还没有员工。"));
-        return;
-    }
-    if (!m.foodBuyFoodCombo || m.foodBuyFoodCombo->count() == 0) {
-        showError(QStringLiteral("还没有食物，请先添加食物。"));
-        return;
-    }
-    const std::string employeeId = m.foodBuyEmployeeCombo->currentData().toString().toStdString();
-    const std::string foodId = m.foodBuyFoodCombo->currentData().toString().toStdString();
-    animal *a = animalManager.findbyid(employeeId);
-    if (!a) {
-        showError(QStringLiteral("员工不存在。"));
-        return;
-    }
-    if (a->bankAccountNo().empty()) {
-        showError(QStringLiteral("该员工还没有绑定银行账号，请先在“银行管理”中开户。"));
-        return;
-    }
-    const int quantity = m.foodQtySpin->value();
-    int transactionId = 0;
-    std::string message;
-    if (!foodService.purchaseFood(bank, *a, foodId, quantity, transactionId, message)) {
-        showError(QString::fromStdString(message));
-        return;
-    }
-
-    // [功能] 购买成功：写进食记录 + 保存购买单/动物园/银行数据。
-    animalManager.feedanimal(employeeId, Date::today().toString(), quantity);
-    try {
-        animalManager.save();
-    } catch (...) {
-    }
-    foodService.savePurchases(kPurchaseFile);
-    refreshAll();
-    showInfo(QString::fromStdString(message) + QStringLiteral("\n银行流水号：") + QString::number(transactionId));
-}
-
-void MainWindow::saveFoodFile()
-{
-    const bool a = foodService.saveFoods(kFoodFile);
-    const bool b = foodService.savePurchases(kPurchaseFile);
-    if (a && b) {
-        showInfo(QStringLiteral("食物目录和购买记录已保存。"));
-    } else {
-        showError(QStringLiteral("食物数据保存失败。"));
-    }
-}
-
-void MainWindow::loadFoodFile()
-{
-    const bool a = foodService.loadFoods(kFoodFile);
-    const bool b = foodService.loadPurchases(kPurchaseFile);
-    fillFoodCombos();
-    refreshFoodTable();
-    refreshPurchaseTable();
-    if (a || b) {
-        showInfo(QStringLiteral("食物数据已加载。"));
-    } else {
-        showError(QStringLiteral("没有找到食物数据文件，或文件格式错误。"));
-    }
+    closeOperationDialog();
 }

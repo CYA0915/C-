@@ -9,19 +9,17 @@
 
 using namespace std;
 
-enum TransactionType { // [需补全] 增加食物消费类型。
-// [补全思路] 在现有枚举末尾追加TX_FOOD_PURCHASE，保留旧枚举值；同步typeName/typeFromName和存储解析。
+enum TransactionType {
     TX_DEPOSIT = 0,
     TX_WITHDRAW,
     TX_TRANSFER_IN,
     TX_TRANSFER_OUT,
     TX_SALARY,
     TX_INTEREST,
-    TX_FOOD_PURCHASE   // [Qt 前端支持] 食物消费独立成类，便于界面筛选。
+    TX_FOOD_PURCHASE   // 食物消费流水类型
 };
 
-class Transaction { // [需补全] 关联工资单或食物购买单。
-// [补全思路] 增加业务编号，或先约定可解析且唯一的编号字段；金额继续用分，交易日期不等于工资所属月份，工资月份由工资单记录。
+class Transaction {
 public:
     Transaction();
     Transaction(int id, const string& accountNo, TransactionType type,
@@ -35,11 +33,9 @@ public:
     Date date() const;
     const string& note() const;
 
-    string typeName() const; // [需补全] 识别新增消费流水类型。
-    // [补全思路] 在实现的switch中增加TX_FOOD_PURCHASE分支，显示食物购买。
+    string typeName() const;
 
-    static bool typeFromName(const string& name, TransactionType& type); // [需补全] 读取新增消费流水类型。
-    // [补全思路] 增加食物购买名称到枚举的映射，与typeName输出保持一致。
+    static bool typeFromName(const string& name, TransactionType& type);
 
 private:
     int id_;
@@ -143,12 +139,3 @@ inline bool Transaction::typeFromName(const string& name, TransactionType& type)
 }
 
 #endif
-
-// ============================================================================
-// 文件说明（Transaction.h）
-//   交易流水类 Transaction（头文件内实现）：
-//   流水号、账号、交易类型、金额（分）、交易后余额（分）、日期、备注。
-//   类型枚举：TX_DEPOSIT / TX_WITHDRAW / TX_TRANSFER_IN / TX_TRANSFER_OUT /
-//             TX_SALARY / TX_INTEREST。
-//   typeName() / typeFromName() 用于界面显示和 CSV 读写。
-// ============================================================================

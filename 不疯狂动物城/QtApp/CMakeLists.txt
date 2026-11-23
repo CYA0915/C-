@@ -8,8 +8,8 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTORCC ON)
 
-find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets Sql)
-find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets Sql)
+find_package(QT NAMES Qt6 Qt5 REQUIRED COMPONENTS Widgets)
+find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 
 add_executable(QtApp
     main.cpp
@@ -17,8 +17,6 @@ add_executable(QtApp
     mainwindow.cpp
     managerpage.cpp
     employeepage.cpp
-    sqliteexporter.h
-    sqliteexporter.cpp
     mainwindow.ui
 
     ../src/common/Date.h
@@ -60,6 +58,7 @@ add_executable(QtApp
 
     ../src/food/Food.h
     ../src/food/Food.cpp
+    ../src/food/FoodPurchaseRecord.h
     ../src/food/FoodPurchaseService.h
     ../src/food/FoodPurchaseService.cpp
     ../src/food/FoodStorage.h
@@ -67,7 +66,7 @@ add_executable(QtApp
 )
 
 target_include_directories(QtApp PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(QtApp PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Sql)
+target_link_libraries(QtApp PRIVATE Qt${QT_VERSION_MAJOR}::Widgets)
 
 set_target_properties(QtApp PROPERTIES
     AUTOMOC_PATH_PREFIX ON

@@ -16,16 +16,16 @@ bool PayrollStorage::Save(const vector<PayrollRecord>& records, const string& fi
              << r.year << " "
              << r.month << " "
              << r.accountNo << " ";
-        
+
         file << r.basicSalary << " "
              << r.absentDeduction << " "
              << r.leaveDeduction << " "
              << r.bonus << " "
              << r.finalsalary << " ";
-            
+
         file << r.status << " "
              << r.bankTransactionId << " ";
-        
+
         file << r.attendance.employeeID << " "
              << r.attendance.year << " "
              << r.attendance.month << " "
@@ -57,7 +57,7 @@ bool PayrollStorage::Load(vector<PayrollRecord>& records, const string& filename
         }
         istringstream iss(line);
         PayrollRecord r;
-        
+
         if(!(iss >> r.payrollId >> r.employeeId >> r.year >> r.month >> r.accountNo
              >> r.basicSalary >> r.absentDeduction >> r.leaveDeduction >> r.bonus >> r.finalsalary
              >> r.status >> r.bankTransactionId

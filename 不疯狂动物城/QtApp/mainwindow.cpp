@@ -1,13 +1,13 @@
-// ============================================================================
-// mainwindow.cpp
 //   窗口骨架、登录/登出、数据加载保存、通用刷新与工具函数。
-//   三个页面的具体标签页分别在 managerpage.cpp / employeepage.cpp 中搭建。
-// ============================================================================
+//   管理者和员工的标签页分别在 managerpage.cpp / employeepage.cpp 中搭建。
 #include "mainwindow.h"
 #include "ui_mainwindow.h"
 
 #include <QAbstractItemView>
-#include <QCheckBox>
+#include <QAction>
+#include <QApplication>
+#include <QDialog>
+#include <QMenu>
 #include <QCloseEvent>
 #include <QComboBox>
 #include <QDateEdit>
@@ -43,9 +43,27 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-    setMinimumSize(1180, 820);
+    setMinimumSize(960, 680);
+    resize(1120, 780);
+    setStyleSheet(QStringLiteral(
+        "QMainWindow,QDialog{background:#f6f8fb;color:#26384d;}"
+        "QLabel{color:#26384d;}"
+        "QLabel#pageTitle{font-size:20px;font-weight:bold;color:#20334d;}"
+        "QLabel#employeeCard{padding:12px;background:#edf4fc;border-radius:5px;color:#294c72;}"
+        "QLabel#accountBalance{font-size:20px;font-weight:bold;color:#1761ac;padding:8px 0;}"
+        "QTabWidget::pane{border:1px solid #dce3ec;background:white;border-radius:5px;}"
+        "QTabBar::tab{padding:9px 18px;background:#edf1f6;color:#42536b;border:0;}"
+        "QTabBar::tab:selected{background:white;color:#1761ac;font-weight:bold;}"
+        "QPushButton{padding:5px 12px;border:1px solid #d1dbe7;border-radius:5px;background:white;color:#26384d;}"
+        "QPushButton:hover{background:#edf4fc;border-color:#82addb;}"
+        "QPushButton#primaryButton{background:#2469b2;color:white;border-color:#2469b2;}"
+        "QLineEdit,QSpinBox,QDateEdit,QComboBox{padding:5px;border:1px solid #d1dbe7;border-radius:4px;background:white;color:#26384d;}"
+        "QTableWidget,QTextEdit{background:white;color:#26384d;alternate-background-color:#f7f9fc;border:1px solid #e0e6ef;gridline-color:#edf1f6;selection-background-color:#dfecfb;selection-color:#173c68;}"
+        "QHeaderView::section{padding:7px;background:#f0f4f9;border:0;border-bottom:1px solid #dce3ec;color:#42536b;font-weight:bold;}"
+        "QGroupBox{border:1px solid #e0e6ef;border-radius:5px;margin-top:10px;padding-top:10px;background:white;}"
+        "QGroupBox::title{subcontrol-origin:margin;left:12px;color:#42536b;}"));
 
-    // [界面] 先搭好三个页面，再加载数据，最后停在登录页。
+    // 先搭好三个页面，再加载数据，最后停在登录页。
     setupLoginPage();
     setupManagerPage();
     setupEmployeePage();
@@ -53,7 +71,7 @@ MainWindow::MainWindow(QWidget *parent)
     refreshAll();
     showLoginPage();
 
-    statusBar()->showMessage(QStringLiteral("数据目录：") + QDir::currentPath());
+    statusBar()->showMessage(QStringLiteral("数据已加载，关闭窗口时自动保存。"));
 }
 
 MainWindow::~MainWindow()
@@ -61,9 +79,7 @@ MainWindow::~MainWindow()
     delete ui;
 }
 
-// ============================================================================
 // 登录 / 登出
-// ============================================================================
 void MainWindow::showLoginPage()
 {
     currentEmployeeId.clear();
@@ -85,6 +101,10 @@ void MainWindow::showLoginPage()
 
 void MainWindow::showManagerPage()
 {
+    const QDate today = QDate::currentDate();
+    if (!initializeAttendance(today.year(), today.month())) {
+        return;
+    }
     currentEmployeeId.clear();
     currentRole = "管理者";
     refreshManagerUi();
@@ -94,6 +114,10 @@ void MainWindow::showManagerPage()
 
 void MainWindow::showEmployeePage(const std::string &employeeId)
 {
+    const QDate today = QDate::currentDate();
+    if (!initializeAttendance(today.year(), today.month())) {
+        return;
+    }
     currentEmployeeId = employeeId;
     currentRole = "员工";
     refreshEmployeeUi();
@@ -110,7 +134,7 @@ void MainWindow::handleLogin()
     const QString account = loginAccountEdit->text().trimmed();
     const QString password = loginPasswordEdit->text();
 
-    // [校验] 管理者使用固定演示账号；员工使用动物园里已存在的员工编号。
+    // 管理者使用固定演示账号；员工使用动物园里已存在的员工编号。
     if (role == QStringLiteral("manager")) {
         if (account == QStringLiteral("admin") && password == QStringLiteral("123456")) {
             showManagerPage();
@@ -138,26 +162,24 @@ void MainWindow::handleLogin()
 
 void MainWindow::logout()
 {
-    // [功能] 退出前保存一份，防止演示数据丢失；保存失败不阻止退出。
+    // 退出登录前保存；保存失败不阻止退出。
     saveAllData(false);
     showLoginPage();
 }
 
 void MainWindow::closeEvent(QCloseEvent *event)
 {
-    // [功能] 关闭窗口自动保存全部模块。
+    // 关闭窗口自动保存全部模块。
     saveAllData(false);
     event->accept();
 }
 
-// ============================================================================
 // 数据加载 / 保存
-// ============================================================================
 bool MainWindow::loadAllData()
 {
     bool ok = true;
 
-    // [功能] 动物园：animals.txt / records.txt。旧文件损坏时 catch，避免启动崩溃。
+    // 加载动物和历史记录；捕获文件解析异常。
     try {
         animalManager.load();
     } catch (const std::exception &e) {
@@ -168,7 +190,7 @@ bool MainWindow::loadAllData()
         statusBar()->showMessage(QStringLiteral("动物园数据加载失败：未知异常"));
     }
 
-    // [功能] 考勤文件、银行 CSV、工资单、食物目录、购买记录。
+    // 考勤文件、银行 CSV、工资单、食物目录、购买记录。
     if (!attendanceFile.Load(attendance, kAttendanceFile)) {
         // 文件不存在是正常的首次运行，不弹窗。
     }
@@ -178,15 +200,42 @@ bool MainWindow::loadAllData()
     foodService.loadFoods(kFoodFile);
     foodService.loadPurchases(kPurchaseFile);
 
-    dataLoaded = true;
+    const QDate today = QDate::currentDate();
+    if (!initializeAttendance(today.year(), today.month())) {
+        ok = false;
+    }
     return ok;
+}
+
+bool MainWindow::initializeAttendance(int year, int month)
+{
+    const std::vector<Date> dates = buildScheduledDates(year, month);
+    const std::vector<animal *> &animals = animalManager.getanimals();
+    for (animal *a : animals) {
+        attendance.initialize(a->getid(), dates);
+        AttendanceSummary summary;
+        std::string message;
+        if (!attendance.summarize(a->getid(), year, month, dates, summary, message)) {
+            showError(QString::fromStdString(message));
+            return false;
+        }
+        if (summary.missingDays > 0) {
+            showError(QStringLiteral("考勤记录空间不足：当前最多保存366个日期，每天最多100名员工。"));
+            return false;
+        }
+    }
+    if (!attendanceFile.Save(attendance, kAttendanceFile)) {
+        showError(QStringLiteral("考勤初始化后保存失败，请检查数据目录。"));
+        return false;
+    }
+    return true;
 }
 
 bool MainWindow::saveAllData(bool showResult)
 {
     bool ok = true;
 
-    // [功能] 依次保存各模块。zoo::save() 没有返回值，只能保证调用完成。
+    // 依次保存各模块。zoo::save() 没有返回值，只能保证调用完成。
     try {
         animalManager.save();
     } catch (...) {
@@ -221,8 +270,6 @@ bool MainWindow::saveAllData(bool showResult)
 
 void MainWindow::refreshAll()
 {
-    fillEmployeeCombos();
-    fillFoodCombos();
     if (m.tabs) {
         refreshManagerUi();
     }
@@ -246,7 +293,7 @@ void MainWindow::refreshManagerUi()
     refreshFoodTable();
     refreshPurchaseTable();
     if (m.welcomeLabel) {
-        m.welcomeLabel->setText(QStringLiteral("管理者：可管理动物园、考勤、银行、工资和食物"));
+        m.welcomeLabel->setText(QStringLiteral("管理工作台"));
     }
 }
 
@@ -263,16 +310,21 @@ void MainWindow::refreshEmployeeUi()
     refreshEmployeePayroll();
     refreshEmployeePurchases();
     if (e.welcomeLabel) {
-        e.welcomeLabel->setText(QStringLiteral("员工：") + QString::fromStdString(currentEmployeeId));
+        e.welcomeLabel->setText(QStringLiteral("员工工作台"));
     }
 }
 
-// ============================================================================
+void MainWindow::refreshWorkTables()
+{
+    refreshAttendanceTable();
+    refreshPayrollTable();
+    m.paySummaryLabel->setText(QStringLiteral("考勤与工资单使用同一员工、同一月份；点击“查询考勤”查看统计。"));
+}
+
 // 下拉框数据
-// ============================================================================
 void MainWindow::fillEmployeeCombos()
 {
-    // [刷新] 所有“员工”相关下拉框共用同一份 zoo 数据；显示“编号 | 姓名”，数据存编号。
+    // 所有“员工”相关下拉框共用同一份 zoo 数据；显示“编号 | 姓名”，数据存编号。
     QStringList ids;
     QStringList labels;
     const std::vector<animal *> &animals = animalManager.getanimals();
@@ -286,8 +338,7 @@ void MainWindow::fillEmployeeCombos()
     }
 
     QList<QComboBox *> combos = {
-        m.attSumEmployeeCombo, m.bankOpenOwnerCombo,
-        m.payEmployeeCombo, m.foodBuyEmployeeCombo
+        m.bankOpenOwnerCombo, m.attEmployeeCombo, m.payEmployeeCombo
     };
     for (QComboBox *combo : combos) {
         if (!combo) {
@@ -295,6 +346,9 @@ void MainWindow::fillEmployeeCombos()
         }
         const QString old = combo->currentData().toString();
         combo->clear();
+        if (combo == m.payEmployeeCombo) {
+            combo->addItem(QStringLiteral("全部员工"), QString());
+        }
         for (int i = 0; i < ids.size(); ++i) {
             combo->addItem(labels[i], ids[i]);
         }
@@ -307,34 +361,29 @@ void MainWindow::fillEmployeeCombos()
 
 void MainWindow::fillFoodCombos()
 {
-    // [刷新] 食物下拉框显示“编号 | 名称 | 单价”，数据存编号。
+    if (!e.foodCombo) {
+        return;
+    }
+    // 只有员工端提供购买入口，更新员工的食物下拉框。
     const std::vector<Food> &foods = foodService.getFoods();
-    QList<QComboBox *> combos = {m.foodBuyFoodCombo, e.foodCombo};
-    for (QComboBox *combo : combos) {
-        if (!combo) {
-            continue;
-        }
-        const QString old = combo->currentData().toString();
-        combo->clear();
-        for (size_t i = 0; i < foods.size(); ++i) {
-            const QString label = QString::fromStdString(foods[i].getFoodId() + " | " +
-                                                         foods[i].getFoodName() + " | " +
-                                                         moneyToString(foods[i].getPricePerKg()) + " 元/kg");
-            combo->addItem(label, QString::fromStdString(foods[i].getFoodId()));
-        }
-        int index = combo->findData(old);
-        if (index >= 0) {
-            combo->setCurrentIndex(index);
-        }
+    const QString old = e.foodCombo->currentData().toString();
+    e.foodCombo->clear();
+    for (const Food &food : foods) {
+        const QString label = QString::fromStdString(food.getFoodId() + " | " +
+                                                     food.getFoodName() + " | " +
+                                                     moneyToString(food.getPricePerKg()) + " 元/kg");
+        e.foodCombo->addItem(label, QString::fromStdString(food.getFoodId()));
+    }
+    const int index = e.foodCombo->findData(old);
+    if (index >= 0) {
+        e.foodCombo->setCurrentIndex(index);
     }
 }
 
-// ============================================================================
 // 通用工具
-// ============================================================================
 QTableWidget *MainWindow::newTable(const QStringList &headers)
 {
-    // [界面] 统一表格风格：整行选择、只读、交替行色、最后一列拉伸。
+    // 统一表格风格：整行选择、只读、交替行色、最后一列拉伸。
     QTableWidget *table = new QTableWidget();
     table->setColumnCount(headers.size());
     table->setHorizontalHeaderLabels(headers);
@@ -345,14 +394,16 @@ QTableWidget *MainWindow::newTable(const QStringList &headers)
     table->verticalHeader()->setVisible(false);
     table->horizontalHeader()->setStretchLastSection(true);
     table->horizontalHeader()->setSectionResizeMode(QHeaderView::ResizeToContents);
-    table->setMinimumHeight(150);
+    table->setMinimumHeight(140);
+    table->verticalHeader()->setDefaultSectionSize(32);
     return table;
 }
 
 QPushButton *MainWindow::newButton(const QString &text)
 {
     QPushButton *button = new QPushButton(text);
-    button->setMinimumHeight(28);
+    button->setMinimumHeight(32);
+    button->setAutoDefault(false);
     button->setCursor(Qt::PointingHandCursor);
     return button;
 }
@@ -378,9 +429,59 @@ QGroupBox *MainWindow::newGroup(const QString &title)
     return new QGroupBox(title);
 }
 
-QString MainWindow::moneyText(Money amount) const
+QDialog *MainWindow::newDialog(const QString &title)
 {
-    return QString::fromStdString(moneyToString(amount)) + QStringLiteral(" 元");
+    QDialog *dialog = new QDialog(this);
+    dialog->setWindowTitle(title);
+    dialog->setMinimumWidth(440);
+    dialog->setModal(true);
+    return dialog;
+}
+
+QPushButton *MainWindow::dialogAction(QDialog *dialog, QFormLayout *form, const QString &text)
+{
+    QHBoxLayout *buttons = new QHBoxLayout();
+    QPushButton *action = newButton(text);
+    action->setObjectName(QStringLiteral("primaryButton"));
+    action->setDefault(true);
+    QPushButton *cancel = newButton(QStringLiteral("取消"));
+    buttons->addStretch();
+    buttons->addWidget(cancel);
+    buttons->addWidget(action);
+    form->addRow(buttons);
+    connect(cancel, &QPushButton::clicked, dialog, &QDialog::reject);
+    return action;
+}
+
+QPushButton *MainWindow::newDataButton(bool manager)
+{
+    QPushButton *button = newButton(QStringLiteral("数据"));
+    QMenu *menu = new QMenu(button);
+    QAction *save = menu->addAction(QStringLiteral("保存全部数据"));
+    connect(save, &QAction::triggered, this, [this]() { saveAllData(true); });
+    if (manager) {
+        QAction *load = menu->addAction(QStringLiteral("重新加载数据"));
+        connect(load, &QAction::triggered, this, [this]() {
+            if (loadAllData()) {
+                refreshAll();
+                showStatus(QStringLiteral("数据已重新加载。"));
+            }
+        });
+    }
+    QAction *location = menu->addAction(QStringLiteral("查看数据位置"));
+    connect(location, &QAction::triggered, this, [this]() {
+        showInfo(QStringLiteral("数据保存在：\n") + QDir::currentPath());
+    });
+    button->setMenu(menu);
+    return button;
+}
+
+void MainWindow::closeOperationDialog()
+{
+    QDialog *dialog = qobject_cast<QDialog *>(QApplication::activeModalWidget());
+    if (dialog) {
+        dialog->accept();
+    }
 }
 
 QString MainWindow::statusText(int status) const
@@ -395,7 +496,7 @@ QString MainWindow::statusText(int status) const
 
 bool MainWindow::readMoney(QLineEdit *edit, Money &amount, QString &error) const
 {
-    // [校验] 金额输入统一走 parseMoney，界面只负责把错误翻译成中文。
+    // 金额输入统一走 parseMoney，界面只负责把错误翻译成中文。
     if (!edit) {
         error = QStringLiteral("金额输入框不存在");
         return false;
@@ -426,14 +527,9 @@ Date MainWindow::dateFromQDate(const QDate &date) const
     return Date(date.year(), date.month(), date.day());
 }
 
-QDate MainWindow::qdateFromDate(const Date &date) const
+std::vector<Date> MainWindow::buildScheduledDates(int year, int month) const
 {
-    return QDate(date.year(), date.month(), date.day());
-}
-
-std::vector<Date> MainWindow::buildScheduledDates(int year, int month, bool workdays) const
-{
-    // [功能] 生成某月应出勤日期：workdays=true 只取周一至周五，否则取全月。
+    // 所有页面统一按周一至周五排班。
     std::vector<Date> dates;
     QDate first(year, month, 1);
     if (!first.isValid()) {
@@ -442,7 +538,7 @@ std::vector<Date> MainWindow::buildScheduledDates(int year, int month, bool work
     const int days = first.daysInMonth();
     for (int day = 1; day <= days; ++day) {
         QDate d(year, month, day);
-        if (workdays && (d.dayOfWeek() == 6 || d.dayOfWeek() == 7)) {
+        if (d.dayOfWeek() == 6 || d.dayOfWeek() == 7) {
             continue;
         }
         dates.push_back(Date(year, month, day));
@@ -452,7 +548,7 @@ std::vector<Date> MainWindow::buildScheduledDates(int year, int month, bool work
 
 animal *MainWindow::selectedAnimal() const
 {
-    // [工具] 动物园表格第 0 列是编号。
+    // 动物园表格第 0 列是编号。
     if (!m.zooTable || m.zooTable->currentRow() < 0) {
         return nullptr;
     }
@@ -465,7 +561,7 @@ animal *MainWindow::selectedAnimal() const
 
 BankAccount *MainWindow::selectedAccount() const
 {
-    // [工具] 账户表格第 0 列是账号。
+    // 账户表格第 0 列是账号。
     if (!m.accountTable || m.accountTable->currentRow() < 0) {
         return nullptr;
     }
@@ -505,9 +601,7 @@ void MainWindow::showStatus(const QString &text)
     statusBar()->showMessage(text, 5000);
 }
 
-// ============================================================================
-// [界面] 登录页：角色 + 账号 + 密码 + 登录按钮
-// ============================================================================
+// 登录页：角色 + 账号 + 密码 + 登录按钮
 void MainWindow::setupLoginPage()
 {
     QVBoxLayout *root = new QVBoxLayout(ui->loginPage);
@@ -545,7 +639,7 @@ void MainWindow::setupLoginPage()
     form->addRow(loginHintLabel);
     form->addRow(note);
 
-    // [功能] 角色切换时更新账号/密码提示。
+    // 角色切换时更新账号/密码提示。
     connect(loginRoleCombo, &QComboBox::currentTextChanged, this, [this](const QString &) {
         if (loginRoleCombo->currentData().toString() == QStringLiteral("manager")) {
             loginAccountEdit->setPlaceholderText(QStringLiteral("管理者账号 admin"));

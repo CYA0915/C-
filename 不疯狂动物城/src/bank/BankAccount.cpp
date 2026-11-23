@@ -205,14 +205,3 @@ void CreditAccount::printInfo() const {
 Money CreditAccount::creditLimit() const {
     return creditLimit_;
 }
-
-// ============================================================================
-// 文件说明（BankAccount.cpp）
-//   BankAccount / SavingsAccount / CreditAccount 的实现：
-//   - 基类：构造、存款、利息入账（applyInterest）、信息显示、销户取余额；
-//   - 储蓄账户：取款后余额不得低于最低留存余额；
-//     利息 = 余额 × SAVINGS_ANNUAL_RATE × 天数 / 365，四舍五入到分；
-//   - 信用账户：允许透支到 -信用额度；
-//     欠款利息 = 欠款 × CREDIT_DAILY_RATE × 天数，利息计入欠款（余额减少）。
-//   所有金额单位为“分”。
-// ============================================================================

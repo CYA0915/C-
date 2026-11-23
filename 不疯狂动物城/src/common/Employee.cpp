@@ -48,8 +48,3 @@ void Employee::setBankAccountNo(const string& accountNo) {
 const string& Employee::bankAccountNo() const {
     return bankAccountNo_;
 }
-
-// ============================================================================
-// 文件说明（Employee.cpp）
-//   Employee 的构造、员工编号/姓名读写以及 printInfo() 的实现。
-// ============================================================================

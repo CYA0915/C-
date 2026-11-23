@@ -4,7 +4,7 @@
 #include "../common/Date.h"
 
 bool FoodPurchaseService::addFood(const Food& food, string& message) {
-    // [Qt 前端支持] 编号唯一，避免 findFoodIndex 命中错误项。
+    // 编号唯一，避免 findFoodIndex 命中错误项。
     if (findFoodIndex(food.getFoodId()) != -1) {
         message = "食物编号已存在";
         return false;
@@ -55,6 +55,12 @@ bool FoodPurchaseService::loadPurchases(const string& filename) {
 bool FoodPurchaseService::purchaseFood(BankService& bank, const Employee& employee, const string& foodId, int quantity, int& transactionId, string& message) {
     transactionId = 0;
 
+    BankAccount *account = bank.findAccount(employee.bankAccountNo());
+    if (!account || account->ownerId() != employee.id()) {
+        message = "购买食物必须使用该员工名下的银行账户";
+        return false;
+    }
+
     int foodIndex = findFoodIndex(foodId);
     if (foodIndex == -1) {
         message = "未找到对应食物";
@@ -72,8 +78,8 @@ bool FoodPurchaseService::purchaseFood(BankService& bank, const Employee& employ
     }
     Money totalCost = food.getPricePerKg() * quantity;
 
-    string info = "员工 " + employee.id() + " 购买食物 " + food.getFoodId() + " " + food.getFoodName() + 
-    " 数量 " + to_string(quantity) +  "kg" + ",单价" + 
+    string info = "员工 " + employee.id() + " 购买食物 " + food.getFoodId() + " " + food.getFoodName() +
+    " 数量 " + to_string(quantity) +  "kg" + ",单价" +
     moneyToString(food.getPricePerKg()) + "元/公斤，总价" + moneyToString(totalCost) + "元";
 
     bool success = bank.payForFood(employee.bankAccountNo(), totalCost, info, transactionId, message);
@@ -81,7 +87,7 @@ bool FoodPurchaseService::purchaseFood(BankService& bank, const Employee& employ
         return false;
     }
 
-    // [Qt 前端支持] 支付成功后生成购买单快照；编号在当前集合内唯一。
+    // 支付成功后生成购买单快照；编号在当前集合内唯一。
     FoodPurchaseRecord record;
     record.purchaseId = "FP" + to_string(purchases.size() + 1);
     while (true) {

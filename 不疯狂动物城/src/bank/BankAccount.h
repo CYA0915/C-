@@ -13,8 +13,7 @@ const double SAVINGS_ANNUAL_RATE = 0.015;
 
 const double CREDIT_DAILY_RATE = 0.0005;
 
-class BankAccount { // [需补全] 明确账户所属对象为动物员工。
-// [补全思路] ownerId保存Employee编号，账户继续独立于动物继承树；现有储蓄/信用扣款规则可直接复用，无需为每个物种创建账户子类。
+class BankAccount {
 protected:
     string accountNo_;
     string ownerId_;
@@ -89,16 +88,3 @@ private:
 };
 
 #endif
-
-// ============================================================================
-// 文件说明（BankAccount.h）
-//   账户继承体系：
-//     BankAccount（抽象基类）：账号、户主、余额（分）、开户日期、上次结息日期；
-//       纯虚函数 withdraw() / calculateInterest() / typeName()；
-//       已实现 deposit()、applyInterest()、printInfo()、minBalance()/creditLimit()。
-//     SavingsAccount：最低留存余额；CreditAccount：信用额度，允许透支。
-//   利率常量：SAVINGS_ANNUAL_RATE（1.5%）、CREDIT_DAILY_RATE（0.05%）。
-//   多态说明：BankService 使用 vector<BankAccount*> 管理账户，通过虚函数调用
-//             不同账户的取款和计息规则。
-//   完成状态：已完成。
-// ============================================================================

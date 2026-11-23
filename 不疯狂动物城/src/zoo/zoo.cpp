@@ -3,11 +3,8 @@
 #include <iostream>
 using namespace std;
 
-// ============================================================================
-// zoo.cpp
 //   动物园集合管理。原稿由邓编写；整合时陈适配了 Employee 继承、
 //   工资/账号字段和 Qt 前端只读访问，并修复了源文件中的中文乱码。
-// ============================================================================
 
 static vector<string> split(const string& s, char sep) {
     vector<string> parts;
@@ -25,10 +22,7 @@ static vector<string> split(const string& s, char sep) {
 }
 
 zoo::~zoo() {
-    for (size_t i = 0; i < animals.size(); ++i) {
-        delete animals[i];
-    }
-    animals.clear();
+    clear();
 }
 
 void zoo::addanimal(animal* a) {
@@ -185,24 +179,29 @@ void zoo::load() {
     if (!fin) {
         return;
     }
+    clear();
     string line;
     while (getline(fin, line)) {
         if (line.empty()) {
             continue;
         }
         vector<string> p = split(line, '|');
-        if (p.size() < 3) {
+        if (p.size() < 5) {
             continue;
         }
         string type = p[0], id = p[1], name = p[2];
+        const bool isBird = type == "eagle" || type == "parrot";
+        if (p.size() != (isBird ? 6 : 5)) {
+            continue;
+        }
         if (findbyid(id) != nullptr) {
             continue;   // 跳过重复编号，避免集合中出现两个同号动物
         }
         animal* a = nullptr;
         try {
-            if (type == "eagle" && p.size() >= 4) {
+            if (type == "eagle") {
                 a = new eagle(id, name, stod(p[3]));
-            } else if (type == "parrot" && p.size() >= 4) {
+            } else if (type == "parrot") {
                 a = new parrot(id, name, stod(p[3]));
             } else if (type == "lion") {
                 a = new lion(id, name);
@@ -217,21 +216,14 @@ void zoo::load() {
             continue;
         }
 
-        // 兼容旧格式：鸟类 4 列、哺乳类 3 列没有工资/账号，使用默认空值。
+        // 统一新格式：鸟类含翼展，最后两列为基本工资和绑定账号。
         try {
-            if (type == "eagle" || type == "parrot") {
-                if (p.size() >= 6) {
-                    a->setBasicSalary(stoll(p[4]));
-                    a->setBankAccountNo(p[5]);
-                }
-            } else {
-                if (p.size() >= 5) {
-                    a->setBasicSalary(stoll(p[3]));
-                    a->setBankAccountNo(p[4]);
-                }
-            }
+            const int salaryIndex = isBird ? 4 : 3;
+            a->setBasicSalary(stoll(p[salaryIndex]));
+            a->setBankAccountNo(p[salaryIndex + 1]);
         } catch (...) {
-            // 工资/账号解析失败时保留默认值，不阻断整只动物的加载。
+            delete a;
+            continue;
         }
         animals.push_back(a);
     }

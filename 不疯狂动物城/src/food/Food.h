@@ -6,7 +6,7 @@ using namespace std;
 
 class Food {
 private:
-    string foodId; 
+    string foodId;
     string foodName;
     Money pricePerKg = 0;
 public:

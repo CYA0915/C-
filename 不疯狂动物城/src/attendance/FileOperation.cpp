@@ -24,11 +24,12 @@ bool FileOperation::Save(const Basic& basic, const string& filename) {
     return !file.fail();
 }
 
-bool FileOperation::Load(Basic& basic, const string& filename) { 
+bool FileOperation::Load(Basic& basic, const string& filename) {
     ifstream file(filename);
     if (!file.is_open()) {
         return false;
     }
+    Basic loaded;
     string line;
     while (getline(file, line)) {
         if(line.empty()) {
@@ -44,7 +45,11 @@ bool FileOperation::Load(Basic& basic, const string& filename) {
         if(!date.isValid()) {
             return false;
         }
-        basic.addRecord(date, ID, status);
+        loaded.addRecord(date, ID, status);
     }
+    if (file.bad()) {
+        return false;
+    }
+    basic = loaded;
     return true;
 }

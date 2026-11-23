@@ -3,15 +3,10 @@
 #include <QApplication>
 #include <QDir>
 #include <QFont>
+#include <QMessageBox>
 #include <QStandardPaths>
 
-// ============================================================================
-// 程序入口：
-//   1. 把当前工作目录切到“文档/不疯狂动物城数据”，保证相对路径的数据文件
-//      （animals.txt、records.txt、attendance.txt、payroll.txt、foods.txt、
-//       purchases.txt、data/accounts.csv、data/transactions.csv）都可写。
-//   2. 创建 QApplication 和 MainWindow，进入 Qt 事件循环。
-// ============================================================================
+// 选择数据目录后启动统一 Qt 窗口；--data-dir 可用于独立演示。
 int main(int argc, char *argv[])
 {
     QApplication app(argc, argv);
@@ -21,14 +16,28 @@ int main(int argc, char *argv[])
     font.setPointSize(10);
     app.setFont(font);
 
-    QString dataDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
-    if (dataDir.isEmpty()) {
-        dataDir = QDir::homePath();
+    QString dataDir;
+    const QStringList arguments = app.arguments();
+    for (int i = 1; i < arguments.size(); ++i) {
+        if (arguments[i] == "--data-dir") {
+            if (i + 1 == arguments.size()) {
+                QMessageBox::warning(nullptr, QStringLiteral("启动失败"), QStringLiteral("--data-dir 后需要填写数据目录。"));
+                return 1;
+            }
+            dataDir = QDir(arguments[++i]).absolutePath();
+        }
     }
-    dataDir += QStringLiteral("/不疯狂动物城数据");
-    QDir().mkpath(dataDir);
-    QDir().mkpath(dataDir + QStringLiteral("/data"));
-    QDir::setCurrent(dataDir);
+    if (dataDir.isEmpty()) {
+        dataDir = QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation);
+        if (dataDir.isEmpty()) {
+            dataDir = QDir::homePath();
+        }
+        dataDir += QStringLiteral("/不疯狂动物城数据");
+    }
+    if (!QDir().mkpath(dataDir + "/data") || !QDir::setCurrent(dataDir)) {
+        QMessageBox::warning(nullptr, QStringLiteral("启动失败"), QStringLiteral("无法创建或打开数据目录：") + dataDir);
+        return 1;
+    }
 
     MainWindow window;
     window.show();

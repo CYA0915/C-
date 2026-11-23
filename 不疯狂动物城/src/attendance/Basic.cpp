@@ -1,4 +1,3 @@
-//增删查改
 #include "Basic.h"
 #include <iostream>
 
@@ -50,8 +49,6 @@ void Basic::addRecord(Date date, string ID,int status) {
             day[DayIndex].Recordcnt++;
             return;
         }
-        cout << "错误" << endl;
-    return;
 }
 
 void Basic::searchRecord(Date date, string ID) {
@@ -63,8 +60,8 @@ void Basic::searchRecord(Date date, string ID) {
         if(day[i].date == date) {
             for(int j=0; j<day[i].Recordcnt; j++) {
                 if(day[i].dayrecords[j].ID == ID) {
-                    cout << "ID: " << day[i].dayrecords[j].ID << ", Date: " 
-                         << day[i].date.year() << "-" << day[i].date.month() 
+                    cout << "ID: " << day[i].dayrecords[j].ID << ", Date: "
+                         << day[i].date.year() << "-" << day[i].date.month()
                          << "-" << day[i].date.day() << ", Status: " << day[i].dayrecords[j].status << endl;
                     return;
                 }
@@ -100,42 +97,6 @@ void Basic::deleteRecord(Date date,string ID, int status) {
     return;
 }
 
-void Basic::changeRecord(Date date, string ID) { // [需补全] 后续改为接收新状态参数。
-// [补全思路] 同步头文件签名并去掉cin，修改前检查工资结算状态；本次保留原实现。
-    for(int i=0; i<Daycnt; i++) {
-        if(day[i].date == date) {
-            for(int j=0; j<day[i].Recordcnt; j++) {
-                if(day[i].dayrecords[j].ID == ID) {
-                    cout << "记录存在" << endl;
-                    cout << "当前状态: " ;
-                    if(day[i].dayrecords[j].status == 0) {
-                        cout << "缺勤" << endl;
-                    }
-                    else if(day[i].dayrecords[j].status == 1) {
-                        cout << "出勤" << endl;
-                    }
-                    else if(day[i].dayrecords[j].status == 2) {
-                        cout << "请假" << endl;
-                    }
-                    int newStatus;
-                    cout << "请输入新的状态(0:缺勤 1:出勤 2:请假): ";
-                    cin >> newStatus;
-                    if(newStatus < 0 || newStatus > 2) {
-                        cout << "无效状态" << endl;
-                        return;
-                    }
-                    day[i].dayrecords[j].status = newStatus;
-                    cout << "修改成功" << endl;
-                    return;
-                }
-            }
-        }
-    }
-    cout << "无记录" << endl;
-    return;
-}
-
-//search重载部分
 void Basic::searchRecord(Date date) {
     if(Daycnt == 0) {
         cout << "无日期" << endl;
@@ -164,7 +125,7 @@ void Basic::searchRecord(string ID) {
         for(int j=0; j<day[i].Recordcnt; j++) {
             if(day[i].dayrecords[j].ID == ID) {
                 found = true;
-                cout << "ID: " << day[i].dayrecords[j].ID << ", Date: " 
+                cout << "ID: " << day[i].dayrecords[j].ID << ", Date: "
                      << day[i].date.year() << "-" << day[i].date.month()
                      << "-" << day[i].date.day() << ", Status: " << day[i].dayrecords[j].status << endl;
             }
@@ -214,7 +175,7 @@ bool Basic::summarize(
         date.month() != month) {
         message = "应出勤日期不合法或不属于统计月份";
         return false;
-    }   
+    }
         //出勤日期重复判断
         if(attended[date.day()] == 1){
             message = "存在重复应出勤日期";
@@ -259,7 +220,7 @@ bool Basic::summarize(
     return true;
 }
 
-// [Qt 前端支持] 新的修改接口：状态由参数传入，成功返回 true。
+// 按日期和员工编号修改状态，成功返回 true。
 bool Basic::changeRecord(Date date, const string& ID, int newStatus) {
     if (newStatus < 0 || newStatus > 2) {
         return false;
@@ -277,15 +238,32 @@ bool Basic::changeRecord(Date date, const string& ID, int newStatus) {
     return false;
 }
 
-// [Qt 前端支持] 返回已使用的日期组数。
+// 返回已使用的日期组数。
 int Basic::dayCount() const {
     return Daycnt;
 }
 
-// [Qt 前端支持] 越界返回 nullptr，界面必须判空后再读取。
+// 越界返回 nullptr，界面必须判空后再读取。
 const dayRecord* Basic::dayAt(int index) const {
     if (index < 0 || index >= Daycnt) {
         return nullptr;
     }
     return &day[index];
+}
+
+void Basic::initialize(const string& ID, const vector<Date>& scheduledDates) {
+    for (const Date& date : scheduledDates) {
+        Record records[MAX_RECORDS];
+        int count = getRecord(date, records);
+        bool found = false;
+        for (int i = 0; i < count; i++){
+            if (records[i].ID == ID) {
+                found = true;
+                break;
+            }
+        }
+        if (!found) {
+            addRecord(date, ID, 0); // 无记录日期默认状态为缺勤
+        }
+    }
 }

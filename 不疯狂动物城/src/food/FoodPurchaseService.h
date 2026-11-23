@@ -6,11 +6,11 @@
 #include "../common/Employee.h"
 
 using namespace std;
-class BankService; 
+class BankService;
 class FoodPurchaseService {
 private:
     vector<Food> foods;
-    vector<FoodPurchaseRecord> purchases;  // [Qt 前端支持] 已完成的购买单，用于界面历史表。
+    vector<FoodPurchaseRecord> purchases;  // 已完成的购买单，用于界面历史表。
 public:
     bool addFood(const Food& food, string& message);
     int findFoodIndex(const string& foodId) const;
@@ -22,5 +22,3 @@ public:
     bool loadPurchases(const string& filename);
      bool purchaseFood(BankService& bank, const Employee& employee, const string& foodId, int quantity, int& transactionId, string& message);
 };
-
-

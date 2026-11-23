@@ -1,5 +1,4 @@
 #include "SalaryPolicy.h"
-#include "../common/Date.h"
 
 SalaryPolicy::SalaryPolicy(
     Money absentDeductionPerDay,
@@ -37,7 +36,7 @@ bool SalaryPolicy::calculate(
     Money salary = employee.basicSalary();
     Money absentDeduction = summary.absentDays * absentDeductionPerDay;
     Money leaveDeduction = summary.leaveDays * leaveDeductionPerDay;
-    
+
     PayrollRecord record;
     record.employeeId = employee.id();
     record.year = summary.year;
@@ -52,7 +51,7 @@ bool SalaryPolicy::calculate(
     record.bonus = bonus;
     record.finalsalary = salary - absentDeduction - leaveDeduction + bonus;
     record.status = "未发放";
-    record.bankTransactionId = 0;//占位，银行未入账
+    record.bankTransactionId = 0; // 尚未发放，没有银行流水
 
     result = record;
     message = "工资计算成功";

@@ -25,32 +25,31 @@ bool FoodStorage::LoadFood(vector<Food>& foods, const string& filename){
     if(!file.is_open()) {
         return false;
     }
-    vector<Food> tempFoods; 
+    vector<Food> tempFoods;
     string line;
     while(getline(file, line)) {
         if(line.empty()) {
-            continue; 
+            continue;
         }
         istringstream iss(line);
         string id;
         string name;
         Money price;
         if(!(iss >> id >> name >> price)){
-            return false; 
+            return false;
         }
         Food food(id, name, price);
         tempFoods.push_back(food);
     }
     if(file.bad()){
-        return false; 
+        return false;
     }
     foods = tempFoods;
     file.close();
     return true;
 }
 
-
-// [Qt 前端支持] 购买记录保存：每行 11 个字段，用 | 分隔；先写临时容器由调用方决定是否替换。
+// 购买记录保存：每行 11 个字段，用 | 分隔。
 bool FoodStorage::SavePurchases(const vector<FoodPurchaseRecord>& records, const string& filename) {
     ofstream file(filename);
     if (!file.is_open()) {
@@ -74,7 +73,7 @@ bool FoodStorage::SavePurchases(const vector<FoodPurchaseRecord>& records, const
     return !file.fail();
 }
 
-// [Qt 前端支持] 购买记录读取：先读入临时 vector，全部成功后再替换，避免半份数据。
+// 购买记录读取：先读入临时 vector，全部成功后再替换，避免半份数据。
 bool FoodStorage::LoadPurchases(vector<FoodPurchaseRecord>& records, const string& filename) {
     ifstream file(filename);
     if (!file.is_open()) {
