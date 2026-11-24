@@ -1,0 +1,21 @@
+// 整合新增：首见于不疯狂动物城/src/food/FoodPurchaseRecord.h。
+// 关联银行管理系统.rar 内的 src/bank/Transaction.h 的银行流水编号，形成购买快照。
+#pragma once
+#include <string>
+#include "../common/Money.h"
+
+using namespace std;
+
+struct FoodPurchaseRecord {
+    string purchaseId;          // 购买单编号，如 FP1
+    string employeeId;          // 购买员工编号
+    string foodId;              // 食物编号
+    string foodName;            // 购买时的食物名称快照
+    int quantity = 0;           // 数量，单位 kg
+    Money unitPrice = 0;        // 购买时单价，分/kg
+    Money amount = 0;           // 总金额，分
+    string accountNo;           // 扣款账号
+    string date;                // 购买日期 YYYY-MM-DD
+    string status = "已支付";   // 当前只保存已支付的购买
+    int bankTransactionId = 0;  // 对应银行流水号
+};
